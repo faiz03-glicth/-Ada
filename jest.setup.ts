@@ -2,6 +2,9 @@
 
 require('react-native-reanimated').setUpTests();
 
+// TanStack Query batches UI notifications on setTimeout; run them synchronously so updates land inside act().
+require('@tanstack/react-query').notifyManager.setScheduler((callback: () => void) => callback());
+
 jest.mock('react-native-unistyles', () => require('./test/mocks/unistyles'));
 
 jest.mock(

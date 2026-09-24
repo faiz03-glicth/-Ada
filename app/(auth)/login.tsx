@@ -1,6 +1,10 @@
-import { goBack } from '@/shared/actions';
-import { PhasePlaceholder } from '@/shared/ui';
+import { useLocalSearchParams } from 'expo-router';
 
+import { LoginScreen } from '@/features/auth/ui/login/LoginScreen';
+import { parseAuthIntent } from '@/shared/actions/params';
+
+/** One route for both variants (?intent=new|existing). */
 export default function LoginRoute() {
-  return <PhasePlaceholder title="Log in" phase={1} onBack={() => goBack()} />;
+  const { intent } = useLocalSearchParams<{ intent?: string }>();
+  return <LoginScreen intent={parseAuthIntent(intent, 'new')} />;
 }

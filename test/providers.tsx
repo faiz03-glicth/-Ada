@@ -9,7 +9,11 @@ import { renderInScheme } from './render';
 
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } },
+    // Infinite gcTime: no garbage-collection timers left running after a test.
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { retry: false, gcTime: Infinity },
+    },
   });
 }
 
