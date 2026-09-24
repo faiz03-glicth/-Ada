@@ -2,16 +2,23 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 const prettierRecommended = require('eslint-plugin-prettier/recommended');
+const globals = require('globals');
 
 /** Storage and backend SDKs: only core/ and features/*\/data may touch them. */
 const DATA_SDKS = [
   { group: ['@supabase/*'], message: 'Supabase is only used in core/supabase and data/remote.' },
-  { group: ['drizzle-orm', 'drizzle-orm/*', 'expo-sqlite', 'expo-sqlite/*'], message: 'SQLite is only used in core/db and data/local.' },
+  {
+    group: ['drizzle-orm', 'drizzle-orm/*', 'expo-sqlite', 'expo-sqlite/*'],
+    message: 'SQLite is only used in core/db and data/local.',
+  },
 ];
 const ROUTER = { group: ['expo-router'], message: 'Navigate through src/shared/actions instead.' };
 /** Views render and forward events; everything else goes through their ViewModel. */
 const VIEW_ONLY = [
-  { group: ['zustand', '@/features/*/state/*', '@/theme/state/*'], message: 'Views read state through their ViewModel.' },
+  {
+    group: ['zustand', '@/features/*/state/*', '@/theme/state/*'],
+    message: 'Views read state through their ViewModel.',
+  },
   { group: ['@/features/*/data/*', '@/core/*'], message: 'Views never reach the Model layer directly.' },
 ];
 
@@ -21,9 +28,20 @@ module.exports = defineConfig([
   expoConfig,
   prettierRecommended,
   {
-    ignores: ['dist/*', '.expo/*', 'node_modules/*', 'src/core/db/migrations/*', 'expo-env.d.ts'],
+    ignores: [
+      'dist/*',
+      '.expo/*',
+      '.npm/*',
+      'node_modules/*',
+      'coverage/*',
+      'reports/*',
+      'src/core/db/migrations/*',
+      'expo-env.d.ts',
+    ],
   },
   {
+    // The @typescript-eslint plugin is only registered for TypeScript files.
+    files: ['**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
@@ -32,15 +50,31 @@ module.exports = defineConfig([
       '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
     },
   },
-  { files: ['src/**/*.{ts,tsx}'], rules: { 'no-restricted-imports': restrict([...DATA_SDKS, ROUTER]) } },
-  { files: ['app/**/*.{ts,tsx}', 'src/shared/actions/**'], rules: { 'no-restricted-imports': restrict(DATA_SDKS) } },
-  { files: ['src/core/**', 'src/features/*/data/**'], rules: { 'no-restricted-imports': restrict([ROUTER]) } },
   {
-    files: ['src/shared/ui/**/*.tsx', 'src/features/**/ui/**/*Screen.tsx', 'src/features/**/ui/**/components/**'],
+    // Node scripts and tool configs: CommonJS run by Node, never bundled into the app.
+    files: ['scripts/**/*.js', '*.config.js'],
+    languageOptions: { globals: globals.node, sourceType: 'commonjs' },
+    rules: { 'expo/no-dynamic-env-var': 'off' },
+  },
+  { files: ['src/**/*.{ts,tsx}'], rules: { 'no-restricted-imports': restrict([...DATA_SDKS, ROUTER]) } },
+  {
+    files: ['app/**/*.{ts,tsx}', 'src/shared/actions/**'],
+    rules: { 'no-restricted-imports': restrict(DATA_SDKS) },
+  },
+  {
+    files: ['src/core/**', 'src/features/*/data/**'],
+    rules: { 'no-restricted-imports': restrict([ROUTER]) },
+  },
+  {
+    files: [
+      'src/shared/ui/**/*.tsx',
+      'src/features/**/ui/**/*Screen.tsx',
+      'src/features/**/ui/**/components/**',
+    ],
     rules: { 'no-restricted-imports': restrict([...DATA_SDKS, ROUTER, ...VIEW_ONLY]) },
   },
   {
-    files: ['**/__tests__/**', 'test/**', 'jest.setup.ts'],
+    files: ['**/__tests__/**/*.{ts,tsx}', 'test/**/*.{ts,tsx}', 'jest.setup.ts'],
     rules: {
       'no-restricted-imports': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

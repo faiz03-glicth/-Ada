@@ -22,6 +22,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Streak',
   slug: 'streak',
+  // EAS project (expo.dev/accounts/faiz-glitch/projects/streak). Identifiers only, not secrets.
+  owner: 'faiz-glitch',
+  extra: {
+    ...config.extra,
+    eas: { projectId: '384ea1bd-653a-40b0-b8a2-8d8cb7d8c492' },
+  },
   scheme: 'streak',
   version: '1.0.0',
   orientation: 'portrait',
