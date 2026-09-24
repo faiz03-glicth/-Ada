@@ -1,4 +1,12 @@
-import { clampToSlots, distanceToSpan, falloff, nearestSlot, slotSpacing } from '../tabSlots';
+import {
+  buildSlots,
+  clampToSlots,
+  distanceToSpan,
+  falloff,
+  nearestSlot,
+  reachFrom,
+  slotSpacing,
+} from '../tabSlots';
 
 // Four 70pt tabs with the FAB's 84pt slot between the second and third (centres).
 const slots = [
@@ -46,5 +54,38 @@ describe('tab slots', () => {
     expect(weights[5]).toBe(0);
     // With a 0.2 peak boost: 1.20× under the liquid, ~1.08× half a tab away.
     expect(1 + 0.2 * (weights[2] ?? 0)).toBeCloseTo(1.08, 2);
+  });
+});
+
+describe('liquid sizing and reach', () => {
+  const frames = {
+    home: { x: 6, y: 6, width: 58, height: 52 },
+    insights: { x: 64, y: 6, width: 58, height: 52 },
+  };
+  const metrics = { padX: 14, minWidth: 64, overhang: 6 };
+
+  it('wraps each tab’s content with padding, within a minimum and the tab plus its overhang', () => {
+    const slots = buildSlots(
+      ['home', 'insights', 'history'],
+      frames,
+      { home: { width: 30, height: 40 }, insights: { width: 48, height: 40 } },
+      metrics,
+    );
+    // Home: 30 + 28 = 58 → raised to the 64 minimum. Insights: 48 + 28 = 76 → capped at 58 + 12 = 70,
+    // still 11pt clear of its 48pt label on each side. History isn't measured yet, so it has no slot.
+    expect(slots).toEqual([
+      { id: 'home', center: 35, width: 64 },
+      { id: 'insights', center: 93, width: 70 },
+    ]);
+  });
+
+  it('falls back to the tab width until the content has been measured', () => {
+    expect(buildSlots(['home'], frames, {}, metrics)).toEqual([{ id: 'home', center: 35, width: 64 }]);
+  });
+
+  it('never draws the tail more than maxGap behind the head (one body, no ghost bubble)', () => {
+    expect(reachFrom(300, 40, 56)).toBe(244);
+    expect(reachFrom(40, 300, 56)).toBe(96);
+    expect(reachFrom(100, 80, 56)).toBe(80);
   });
 });

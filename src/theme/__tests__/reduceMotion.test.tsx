@@ -57,7 +57,11 @@ describe('useNavigationMotion', () => {
     const { result } = renderHook(() => useNavigationMotion());
     expect(result.current).toBe(motion.navigation);
     act(() => useThemePreferencesStore.getState().setReduceMotion('on'));
-    expect(result.current).toEqual({ push: 'fade', groupSwitch: 'fade', tabs: 'none' });
+    expect(result.current).toEqual({ push: 'fade', groupSwitch: 'fade', tabs: 'fade' });
+  });
+
+  it('never changes the tab transition, so toggling Reduce Motion cannot remount (blank) the tabs', () => {
+    expect(motion.reducedNavigation.tabs).toBe(motion.navigation.tabs);
   });
 });
 

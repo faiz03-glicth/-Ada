@@ -1,65 +1,55 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Gesture } from 'react-native-gesture-handler';
-import {
-  useDerivedValue,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  type WithSpringConfig,
-} from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import { useDerivedValue, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { haptics } from '@/shared/lib/haptics';
 import { motion, useReduceMotion } from '@/theme';
 
-import { clampToSlots, nearestSlot, slotSpacing, type TabFrame, type TabSlot } from './tabSlots';
+import { reachFrom, slotSpacing, type TabSlot } from './tabSlots';
+import { useLiquidDrag } from './useLiquidDrag';
 
 interface Options {
   active: string;
-  frames: Partial<Record<string, TabFrame>>;
+  /** Measured tabs, in bar order (see buildSlots). */
+  slots: readonly TabSlot[];
   /** Called when a drag is released over a different tab. */
   onSelect: (id: string) => void;
 }
 
 const { liquid } = motion;
+const sameSlot = (a: TabSlot | null, b: TabSlot) =>
+  a !== null && a.center === b.center && a.width === b.width;
 
 /**
- * Animation state for the liquid tab bar, kept apart from navigation state: everything that changes per
- * frame lives in shared values on the UI thread, so moving the liquid never re-renders React.
+ * Animation state for the liquid tab bar, kept apart from navigation state. Navigation decides the tab;
+ * this only draws it. Everything that changes per frame lives in shared values on the UI thread, so the
+ * liquid never re-renders React, and nothing here ever triggers or delays navigation.
  *
- * - `head`/`tail`: the two ends of the liquid (tab-centre coordinates). New targets retarget the springs
- *   from wherever they are, so rapid taps redirect the liquid instead of queueing animations.
- * - `stretch`: 0 when gathered, 1 when the ends are a tab apart. `amp`: magnification strength.
- * - `moveTo(id)`: called on tap so the liquid starts moving immediately; navigation changes made in code
- *   (or by a drag) are followed through `active`.
+ * - `head`/`trail`: the two ends of ONE liquid body; `trail` is capped at `maxReach` behind the head.
+ * - `headWidth`/`tailWidth`: the body's width at each end, sized to the destination tab's content.
+ * - New targets retarget the springs from wherever they are, so rapid taps redirect instead of queueing.
  * - With Reduce Motion the liquid jumps and fades in; there is no stretch or magnification.
  */
-export function useLiquidTabBar({ active, frames, onSelect }: Options) {
+export function useLiquidTabBar({ active, slots: measured, onSelect }: Options) {
   const reducedMotion = useReduceMotion();
   const head = useSharedValue(0);
   const tail = useSharedValue(0);
+  const headWidth = useSharedValue(0);
+  const tailWidth = useSharedValue(0);
   const engaged = useSharedValue(0);
-  const dragging = useSharedValue(false);
   const opacity = useSharedValue(1);
-  const slots = useSharedValue<TabSlot[]>([]);
-  const hovered = useSharedValue('');
+  const slots = useSharedValue<readonly TabSlot[]>([]);
   // Read by the drag gesture on the UI thread, so these are shared values rather than refs.
   const activeId = useSharedValue(active);
   const releasedFromDrag = useSharedValue(false);
-  const target = useRef<number | null>(null);
+  const target = useRef<TabSlot | null>(null);
   const previous = useRef(active);
 
-  const measured = useMemo<TabSlot[]>(
-    () =>
-      Object.entries(frames).flatMap(([id, frame]) =>
-        frame ? [{ id, center: frame.x + frame.width / 2, width: frame.width }] : [],
-      ),
-    [frames],
-  );
   const spacing = slotSpacing(measured);
-  const activeCenter = measured.find((slot) => slot.id === active)?.center;
+  const maxGap = liquid.shape.maxReach * spacing;
+  const activeSlot = measured.find((slot) => slot.id === active);
 
-  const stretch = useDerivedValue(() => Math.min(Math.abs(head.get() - tail.get()) / spacing, 1));
+  const trail = useDerivedValue(() => reachFrom(head.get(), tail.get(), maxGap));
+  const stretch = useDerivedValue(() => Math.min(Math.abs(head.get() - trail.get()) / spacing, 1));
   const amp = useDerivedValue(() => {
     if (reducedMotion) return 0;
     const { peak, rest, stretchGain } = liquid.magnify;
@@ -67,36 +57,39 @@ export function useLiquidTabBar({ active, frames, onSelect }: Options) {
   });
 
   const place = useCallback(
-    (center: number) => {
-      target.current = center;
-      head.set(center);
-      tail.set(center);
+    (slot: TabSlot) => {
+      target.current = slot;
+      head.set(slot.center);
+      tail.set(slot.center);
+      headWidth.set(slot.width);
+      tailWidth.set(slot.width);
     },
-    [head, tail],
+    [head, tail, headWidth, tailWidth],
   );
 
   const flowTo = useCallback(
-    (center: number) => {
-      if (target.current === center) return;
-      target.current = center;
+    (slot: TabSlot) => {
+      if (sameSlot(target.current, slot)) return;
       if (reducedMotion) {
-        head.set(center);
-        tail.set(center);
+        place(slot);
         opacity.set(0);
         opacity.set(withTiming(1, liquid.fade));
         return;
       }
-      head.set(withSpring(center, liquid.head));
-      tail.set(withSpring(center, liquid.tail));
+      target.current = slot;
+      head.set(withSpring(slot.center, liquid.head));
+      tail.set(withSpring(slot.center, liquid.tail));
+      headWidth.set(withSpring(slot.width, liquid.head));
+      tailWidth.set(withSpring(slot.width, liquid.tail));
     },
-    [reducedMotion, head, tail, opacity],
+    [reducedMotion, place, head, tail, headWidth, tailWidth, opacity],
   );
 
-  /** Tap: start moving now, before the navigator re-renders with the new tab. */
+  /** Tap: the liquid starts at once, without waiting for the navigator to re-render. */
   const moveTo = useCallback(
     (id: string) => {
-      const center = measured.find((slot) => slot.id === id)?.center;
-      if (center !== undefined) flowTo(center);
+      const slot = measured.find((candidate) => candidate.id === id);
+      if (slot) flowTo(slot);
     },
     [measured, flowTo],
   );
@@ -110,91 +103,31 @@ export function useLiquidTabBar({ active, frames, onSelect }: Options) {
   }, [measured, slots]);
 
   useEffect(() => {
-    if (activeCenter === undefined) return;
+    if (!activeSlot) return;
     const changed = previous.current !== active;
     previous.current = active;
     if (changed) haptics.soft();
-    if (!changed) {
-      // First layout, rotation or resize: sit on the tab without animating.
-      if (target.current !== activeCenter) place(activeCenter);
-      return;
-    }
-    if (releasedFromDrag.get()) {
+    if (changed && releasedFromDrag.get()) {
       // The drag release already sent the liquid to this tab.
       releasedFromDrag.set(false);
-      target.current = activeCenter;
+      target.current = activeSlot;
       return;
     }
-    flowTo(activeCenter);
-  }, [active, activeCenter, flowTo, place, releasedFromDrag]);
+    // A new tab, or the same tab re-measured (e.g. its label weight): flow. Rotation/resize: just sit there.
+    if (changed || target.current?.center === activeSlot.center) flowTo(activeSlot);
+    else place(activeSlot);
+  }, [active, activeSlot, flowTo, place, releasedFromDrag]);
 
-  const tick = useCallback(() => haptics.selection(), []);
-
-  const pan = useMemo(() => {
-    const follow = (x: number, headSpring: WithSpringConfig, tailSpring: WithSpringConfig) => {
-      'worklet';
-      if (reducedMotion) {
-        head.set(x);
-        tail.set(x);
-      } else {
-        head.set(withSpring(x, headSpring));
-        tail.set(withSpring(x, tailSpring));
-      }
-    };
-    return (
-      Gesture.Pan()
-        .withTestId('tab-bar-drag')
-        // Horizontal drags only; taps and vertical scrolls fall through to the tabs.
-        .activeOffsetX([-10, 10])
-        .failOffsetY([-20, 20])
-        .onStart(() => {
-          dragging.set(true);
-          if (!reducedMotion) engaged.set(withSpring(1, liquid.engage));
-          hovered.set(activeId.get());
-        })
-        .onUpdate((event) => {
-          const list = slots.get();
-          const x = clampToSlots(list, event.x);
-          follow(x, liquid.dragHead, liquid.dragTail);
-          const slot = nearestSlot(list, x);
-          if (slot && slot.id !== hovered.get()) {
-            hovered.set(slot.id);
-            scheduleOnRN(tick);
-          }
-        })
-        .onEnd((event) => {
-          const list = slots.get();
-          const slot = nearestSlot(list, clampToSlots(list, event.x));
-          if (!slot) return;
-          follow(slot.center, liquid.head, liquid.tail);
-          if (slot.id !== activeId.get()) {
-            releasedFromDrag.set(true);
-            scheduleOnRN(onSelect, slot.id);
-          }
-        })
-        .onFinalize((_event, success) => {
-          // Plain taps also end here (the pan never started); they must not touch the liquid.
-          if (!dragging.get()) return;
-          dragging.set(false);
-          engaged.set(withSpring(0, liquid.engage));
-          // A drag interrupted (e.g. by a system gesture) flows back to the selected tab.
-          const current = slots.get().find((slot) => slot.id === activeId.get());
-          if (!success && current) follow(current.center, liquid.head, liquid.tail);
-        })
-    );
-  }, [
-    activeId,
-    dragging,
-    engaged,
-    head,
-    hovered,
-    onSelect,
-    reducedMotion,
-    releasedFromDrag,
+  const ends = useMemo(() => ({ head, tail, headWidth, tailWidth }), [head, tail, headWidth, tailWidth]);
+  const pan = useLiquidDrag({
+    ends,
     slots,
-    tail,
-    tick,
-  ]);
+    activeId,
+    engaged,
+    releasedFromDrag,
+    reducedMotion,
+    onSelect,
+  });
 
-  return { head, tail, stretch, amp, opacity, spacing, pan, moveTo };
+  return { head, trail, headWidth, tailWidth, stretch, amp, opacity, spacing, pan, moveTo };
 }

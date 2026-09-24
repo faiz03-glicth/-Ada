@@ -15,6 +15,8 @@ export type HeatSteps = readonly [string, string, string, string, string];
 export interface SemanticColors {
   canvas: string;
   surface: string;
+  /** Floating chrome above cards (tab bar); in dark mode a lighter tone stands in for the shadow. */
+  surfaceRaised: string;
   subtle: string;
   border: string;
   border2: string;

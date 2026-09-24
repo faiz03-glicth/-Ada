@@ -1,4 +1,4 @@
-import type { LayoutChangeEvent } from 'react-native';
+import { View, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -16,11 +16,13 @@ export interface TabBarItemProps {
   /** This tab's centre in bar coordinates; null until measured. */
   center: number | null;
   head: SharedValue<number>;
-  tail: SharedValue<number>;
+  trail: SharedValue<number>;
   amp: SharedValue<number>;
   spacing: number;
   onPress: () => void;
   onLayout: (event: LayoutChangeEvent) => void;
+  /** The icon + label block's size: the liquid is sized to wrap it. */
+  onContentLayout: (event: LayoutChangeEvent) => void;
 }
 
 const { magnify } = motion.liquid;
@@ -35,18 +37,19 @@ export function TabBarItem({
   selected,
   center,
   head,
-  tail,
+  trail,
   amp,
   spacing,
   onPress,
   onLayout,
+  onContentLayout,
 }: TabBarItemProps) {
   const { theme } = useUnistyles();
   const color = selected ? theme.colors.accentText : theme.colors.text3;
 
   const magnified = useAnimatedStyle(() => {
     if (center === null) return { transform: [{ translateY: 0 }, { scale: 1 }] };
-    const weight = falloff(distanceToSpan(center, tail.get(), head.get()), spacing, magnify.falloffPower);
+    const weight = falloff(distanceToSpan(center, trail.get(), head.get()), spacing, magnify.falloffPower);
     const boost = amp.get() * weight;
     return { transform: [{ translateY: -magnify.liftPt * (boost / magnify.peak) }, { scale: 1 + boost }] };
   });
@@ -61,16 +64,19 @@ export function TabBarItem({
       accessibilityState={{ selected }}
       style={styles.tab}
     >
-      <Animated.View testID={`tab-${item.id}-icon`} style={magnified}>
-        <Icon name={item.icon} size={24} color={color} />
-      </Animated.View>
-      <Text variant="mini" weight={selected ? 'semibold' : 'medium'} style={{ color }}>
-        {item.label}
-      </Text>
+      <View style={styles.content} onLayout={onContentLayout}>
+        <Animated.View testID={`tab-${item.id}-icon`} style={magnified}>
+          <Icon name={item.icon} size={24} color={color} />
+        </Animated.View>
+        <Text variant="mini" weight={selected ? 'semibold' : 'medium'} style={{ color }}>
+          {item.label}
+        </Text>
+      </View>
     </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  content: { alignItems: 'center', gap: 3 },
 });

@@ -47,28 +47,35 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     expect(onFabPress).toHaveBeenCalled();
   });
 
-  it('TabBar shows the liquid once tabs are measured, resting on the active tab', () => {
+  it('TabBar shows ONE liquid once tabs are measured, even after rapid taps', () => {
     const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
-    const { theme, rerender } = renderInScheme(
-      <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
+    const onTabPress = jest.fn();
+    const { theme } = renderInScheme(
+      <TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />,
       scheme,
     );
-    // Decorative and hidden from screen readers; absent until the tabs have been laid out.
-    expect(screen.queryByTestId('tab-indicator', { includeHiddenElements: true })).toBeNull();
-
-    fireEvent(screen.getByTestId('tab-home'), 'layout', layout(6));
-    fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(76));
     const hidden = { includeHiddenElements: true };
-    expect(styleOf(screen.getByTestId('tab-indicator', hidden))).toMatchObject({ top: 10, height: 44 });
+    // Decorative and hidden from screen readers; absent until the tabs have been laid out.
+    expect(screen.queryByTestId('tab-indicator', hidden)).toBeNull();
+
+    TAB_ITEMS.forEach((item, index) =>
+      fireEvent(screen.getByTestId(`tab-${item.id}`), 'layout', layout(6 + index * 70)),
+    );
+    // Before the content is measured the liquid fills the tab row's height.
+    expect(styleOf(screen.getByTestId('tab-indicator', hidden))).toMatchObject({ top: 6, height: 52 });
     expect(styleOf(screen.getByTestId('liquid-head', hidden))).toMatchObject({
-      width: 62,
-      height: 44,
-      borderRadius: 22,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       backgroundColor: theme.colors.accentSoft,
     });
 
-    rerender(<TabBar items={TAB_ITEMS} active="insights" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
-    expect(screen.getByTestId('tab-indicator', hidden)).toBeTruthy();
+    for (const name of ['Insights', 'History', 'Profile', 'Home'])
+      fireEvent.press(screen.getByRole('tab', { name }));
+    // Navigation fired for every tap, in order, while exactly one liquid exists.
+    expect(onTabPress.mock.calls.map(([tab]) => tab)).toEqual(['insights', 'history', 'profile', 'home']);
+    expect(screen.getAllByTestId('tab-indicator', hidden)).toHaveLength(1);
+    expect(screen.getAllByTestId('liquid-head', hidden)).toHaveLength(1);
   });
 
   it('magnifies the icon under the liquid, never the others, and not at all with Reduce Motion', () => {

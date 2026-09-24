@@ -11,11 +11,46 @@ export interface TabFrame {
   height: number;
 }
 
-/** Where a tab sits along the bar. */
+/** The measured size of a tab's content (icon above label). */
+export interface ContentSize {
+  width: number;
+  height: number;
+}
+
+/** Where a tab sits along the bar, and how wide the liquid is when it rests there. */
 export interface TabSlot {
   id: string;
   center: number;
   width: number;
+}
+
+export interface BubbleMetrics {
+  /** Space between the content and the liquid's sides. */
+  padX: number;
+  /** The liquid is never narrower than this (a short label still gets a comfortable pill). */
+  minWidth: number;
+  /** How far the liquid may extend past its own tab on each side (so a long label is never clipped). */
+  overhang: number;
+}
+
+/**
+ * One slot per measured tab, in bar order: the liquid wraps the tab's content plus padding, clamped between
+ * `minWidth` and the tab's width plus `overhang` each side. Until content is measured, the tab width is used.
+ */
+export function buildSlots(
+  ids: readonly string[],
+  frames: Partial<Record<string, TabFrame>>,
+  contents: Partial<Record<string, ContentSize>>,
+  { padX, minWidth, overhang }: BubbleMetrics,
+): TabSlot[] {
+  return ids.flatMap((id) => {
+    const frame = frames[id];
+    if (!frame) return [];
+    const content = contents[id];
+    const wanted = content ? content.width + padX * 2 : frame.width;
+    const width = Math.min(Math.max(wanted, minWidth), frame.width + overhang * 2);
+    return [{ id, center: frame.x + frame.width / 2, width }];
+  });
 }
 
 /** The tab whose centre is closest to `x`. */
@@ -71,4 +106,10 @@ export function falloff(distance: number, spacing: number, power: number): numbe
   'worklet';
   const t = 1 - Math.min(distance / spacing, 1);
   return Math.pow(t, power);
+}
+
+/** Where the tail is drawn: at most `maxGap` behind the head, so the liquid stays one connected body. */
+export function reachFrom(head: number, tail: number, maxGap: number): number {
+  'worklet';
+  return head + Math.min(Math.max(tail - head, -maxGap), maxGap);
 }
