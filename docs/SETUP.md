@@ -80,8 +80,8 @@ the terminal before `npm run start` (PowerShell: `$env:EXPO_PUBLIC_SUPABASE_URL 
 GitLab allows it. A pipeline job can push them to EAS with `eas env:set … --non-interactive`
 (it creates or updates) before running `eas build --non-interactive`.
 
-**C. A local `.env` file.** Copy `.env.example` to `.env` and fill it in. It is gitignored and never
-uploaded to EAS.
+**C. A local `.env` file.** Create `.env` with the five `NAME=value` lines from the table above. It is
+gitignored and never uploaded to EAS.
 
 ## 6. Development builds
 

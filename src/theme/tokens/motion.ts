@@ -17,4 +17,30 @@ export const motion = {
   heroStagger: { columnMs: 40, rowMs: 15, durationMs: 500, fromScale: 0.3 },
   pulse: { scale: 1.45, durationMs: 600, repeats: 2 },
   crossFadeMs: 220,
+  /**
+   * Screen transitions: pushed screens slide in from the right on both platforms, tabs cross-fade
+   * (calm, no sideways jump), and moving between the onboarding/login flow and the app cross-fades.
+   */
+  navigation: { push: 'ios_from_right', groupSwitch: 'fade', tabs: 'fade' },
+  /**
+   * The liquid tab highlight: it stretches wide and flat while travelling, then springs back round.
+   * `maxDragStretch` caps how far a fast drag can stretch it.
+   */
+  liquid: {
+    stretch: 1.22,
+    stretchMs: 110,
+    maxDragStretch: 1.35,
+    slide: {
+      damping: 15,
+      stiffness: 190,
+      mass: 0.9,
+      reduceMotion: ReduceMotion.System,
+    } satisfies WithSpringConfig,
+    settle: {
+      damping: 11,
+      stiffness: 210,
+      mass: 0.8,
+      reduceMotion: ReduceMotion.System,
+    } satisfies WithSpringConfig,
+  },
 } as const;

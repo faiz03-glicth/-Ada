@@ -82,6 +82,8 @@ export interface GlassMaterial {
   strong: string;
   tint: string;
   tabBar: string;
+  /** The active-tab highlight that slides between tabs. */
+  pill: string;
   sheet: { tint: string; blur: number };
   toast: { background: string; foreground: string; blur: number };
   canvasBase: string;

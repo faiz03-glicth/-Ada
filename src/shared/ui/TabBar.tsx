@@ -1,10 +1,14 @@
-import { View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, type LayoutChangeEvent } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { TabId, TabItem } from '../config/tabs';
 import { Icon } from './Icon';
 import { PressableScale } from './PressableScale';
+import { TabIndicator, type TabFrame } from './TabIndicator';
 import { Text } from './Text';
+import { useLiquidTabIndicator } from './useLiquidTabIndicator';
 
 export interface TabBarProps {
   items: readonly TabItem[];
@@ -13,10 +17,34 @@ export interface TabBarProps {
   onFabPress: () => void;
 }
 
-/** Floating bottom bar: two tabs, a raised centre "+" (new check-in), two tabs. */
+type Frames = Partial<Record<TabId, TabFrame>>;
+
+const sameFrame = (a: TabFrame | undefined, b: TabFrame) =>
+  a !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+
+/**
+ * Floating bottom bar: two tabs, a raised centre "+" (new check-in), two tabs, and a liquid highlight
+ * that can also be dragged along the bar to switch tabs.
+ */
 export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   const { theme } = useUnistyles();
+  const [frames, setFrames] = useState<Frames>({});
   const half = Math.ceil(items.length / 2);
+
+  const selectById = useCallback(
+    (id: string) => {
+      const tab = items.find((item) => item.id === id);
+      if (tab) onTabPress(tab.id);
+    },
+    [items, onTabPress],
+  );
+  const { x, stretch, pan } = useLiquidTabIndicator({ active, frames, onSelect: selectById });
+
+  const measure = useCallback((id: TabId, { nativeEvent }: LayoutChangeEvent) => {
+    const { x, y, width, height } = nativeEvent.layout;
+    const frame = { x, y, width, height };
+    setFrames((current) => (sameFrame(current[id], frame) ? current : { ...current, [id]: frame }));
+  }, []);
 
   const renderTab = (item: TabItem) => {
     const selected = item.id === active;
@@ -26,6 +54,7 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
         key={item.id}
         testID={`tab-${item.id}`}
         onPress={() => onTabPress(item.id)}
+        onLayout={(event) => measure(item.id, event)}
         accessibilityRole="tab"
         accessibilityLabel={item.label}
         accessibilityState={{ selected }}
@@ -40,22 +69,25 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   };
 
   return (
-    <View style={styles.bar} accessibilityRole="tablist">
-      {items.slice(0, half).map(renderTab)}
-      <View style={styles.fabSlot}>
-        <PressableScale
-          testID="fab-check-in"
-          onPress={onFabPress}
-          scaleTo={0.9}
-          accessibilityRole="button"
-          accessibilityLabel="New check-in"
-          style={styles.fab}
-        >
-          <Icon name="plus" size={30} strokeWidth={2.4} color={theme.colors.onAccent} />
-        </PressableScale>
+    <GestureDetector gesture={pan}>
+      <View style={styles.bar} accessibilityRole="tablist">
+        <TabIndicator frame={frames[active] ?? null} x={x} stretch={stretch} />
+        {items.slice(0, half).map(renderTab)}
+        <View style={styles.fabSlot}>
+          <PressableScale
+            testID="fab-check-in"
+            onPress={onFabPress}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel="New check-in"
+            style={styles.fab}
+          >
+            <Icon name="plus" size={30} strokeWidth={2.4} color={theme.colors.onAccent} />
+          </PressableScale>
+        </View>
+        {items.slice(half).map(renderTab)}
       </View>
-      {items.slice(half).map(renderTab)}
-    </View>
+    </GestureDetector>
   );
 }
 

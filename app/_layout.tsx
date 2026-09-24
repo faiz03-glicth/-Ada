@@ -1,4 +1,6 @@
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { useMemo, type ReactNode } from 'react';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { BootGate } from '@/core/bootstrap/BootGate';
 import { AppProviders } from '@/core/providers/AppProviders';
@@ -7,13 +9,45 @@ import { useAuthAutoRefresh } from '@/core/supabase/useAuthAutoRefresh';
 import { useRouteGuards } from '@/features/auth/hooks/useRouteGuards';
 import { SessionGate } from '@/features/auth/ui/SessionGate';
 import { AppToaster } from '@/shared/ui';
+import { useNavigationMotion } from '@/theme';
 
-/** Exactly one group is reachable at a time; the guards move people between them. */
+/**
+ * Gives the navigators the app's own colours. Without it, the space behind screens during a transition is
+ * React Navigation's default white/grey, which flashes (especially in dark mode).
+ */
+function NavigationTheme({ children }: { children: ReactNode }) {
+  const { theme } = useUnistyles();
+  const value = useMemo(() => {
+    const base = theme.scheme === 'dark' ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: theme.colors.accent,
+        background: theme.colors.canvas,
+        card: theme.colors.canvas,
+        text: theme.colors.text,
+        border: theme.colors.border,
+      },
+    };
+  }, [theme]);
+  return <ThemeProvider value={value}>{children}</ThemeProvider>;
+}
+
+/** Exactly one group is reachable at a time; the guards move people between them (with a cross-fade). */
 function RootNavigator() {
   useAuthAutoRefresh();
+  const { theme } = useUnistyles();
   const { canEnterApp, canEnterAuth } = useRouteGuards();
+  const transitions = useNavigationMotion();
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: transitions.groupSwitch,
+        contentStyle: { backgroundColor: theme.colors.canvas },
+      }}
+    >
       <Stack.Protected guard={canEnterApp}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
@@ -30,7 +64,9 @@ export default function RootLayout() {
       <BootGate>
         <RepositoriesProvider>
           <SessionGate>
-            <RootNavigator />
+            <NavigationTheme>
+              <RootNavigator />
+            </NavigationTheme>
             <AppToaster />
           </SessionGate>
         </RepositoriesProvider>

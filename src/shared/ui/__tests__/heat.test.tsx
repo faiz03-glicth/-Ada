@@ -31,6 +31,11 @@ describe.each(SCHEMES)('heatmap components in %s', (scheme) => {
     expect(style.backgroundColor).toBe('transparent');
   });
 
+  it('the animated variant (pulse) keeps the same look as a static cell', () => {
+    const { theme, toJSON } = renderInScheme(<HeatCell level={4} size={20} pulse />, scheme);
+    expect(styleOf(toJSON())).toMatchObject({ backgroundColor: theme.heat[4], width: 20, height: 20 });
+  });
+
   it('interactive HeatCell is a labelled button', () => {
     const onPress = jest.fn();
     renderInScheme(
