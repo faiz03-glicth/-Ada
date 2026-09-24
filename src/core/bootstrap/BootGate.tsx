@@ -1,19 +1,20 @@
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, type ReactNode } from 'react';
 
 import { BootErrorScreen } from './BootErrorScreen';
+import { hideSplash, keepSplashVisible } from './splash';
 import { useAppBootstrap } from './useAppBootstrap';
 
-// Keep the native splash up until boot finishes. Called at module load, before the first render.
-void SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ fade: true, duration: 250 });
+keepSplashVisible();
 
-/** Renders nothing until boot finishes, then either the app or a readable error. */
+/**
+ * Renders nothing until config, fonts and migrations are ready. On failure it hides the splash and shows
+ * a readable error; on success the splash stays up until the session gate has restored the session.
+ */
 export function BootGate({ children }: { children: ReactNode }) {
   const state = useAppBootstrap();
 
   useEffect(() => {
-    if (state.status !== 'loading') SplashScreen.hide();
+    if (state.status === 'error') hideSplash();
   }, [state.status]);
 
   if (state.status === 'loading') return null;

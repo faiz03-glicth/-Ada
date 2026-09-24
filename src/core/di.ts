@@ -1,5 +1,20 @@
+import { createGuestDataDao } from '@/features/auth/data/local/guestDataDao';
+import { createAuthApi } from '@/features/auth/data/remote/authApi';
+import { expoAppleAuthService } from '@/features/auth/data/services/AppleAuthService';
+import { expoCryptoService } from '@/features/auth/data/services/CryptoService';
+import { googleSignInService } from '@/features/auth/data/services/GoogleAuthService';
+import { SupabaseAuthRepository } from '@/features/auth/data/SupabaseAuthRepository';
 import type { AuthRepository } from '@/features/auth/data/AuthRepository';
+import { createProfileDao } from '@/features/profile/data/local/profileDao';
+import { LocalFirstProfileRepository } from '@/features/profile/data/LocalFirstProfileRepository';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
+import { createProfileApi } from '@/features/profile/data/remote/profileApi';
+import { deviceTimeZone, nowIso } from '@/shared/lib/date/deviceTimeZone';
+
+import { requireEnv } from './config/env';
+import { createAppMetaDao } from './db/appMetaDao';
+import { db } from './db/client';
+import { getSupabase } from './supabase/client';
 
 /**
  * Repository interfaces the app depends on. Concrete implementations are registered in
@@ -8,4 +23,35 @@ import type { ProfileRepository } from '@/features/profile/data/ProfileRepositor
 export interface Repositories {
   auth: AuthRepository;
   profile: ProfileRepository;
+}
+
+/** Composition root: the only place concrete data sources and services are wired together. */
+export function createRepositories(): Repositories {
+  const env = requireEnv();
+  const supabase = getSupabase();
+
+  googleSignInService.configure({
+    webClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  });
+
+  const profile = new LocalFirstProfileRepository({
+    dao: createProfileDao(db),
+    api: createProfileApi(supabase),
+    now: nowIso,
+    timeZone: deviceTimeZone,
+  });
+
+  const auth = new SupabaseAuthRepository({
+    api: createAuthApi(supabase.auth),
+    apple: expoAppleAuthService,
+    google: googleSignInService,
+    crypto: expoCryptoService,
+    profiles: profile,
+    appMeta: createAppMetaDao(db),
+    guestData: createGuestDataDao(db),
+    now: nowIso,
+  });
+
+  return { auth, profile };
 }
