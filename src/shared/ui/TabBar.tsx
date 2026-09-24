@@ -77,7 +77,7 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
           <PressableScale
             testID="fab-check-in"
             onPress={onFabPress}
-            scaleTo={0.9}
+            feedback="liquid"
             accessibilityRole="button"
             accessibilityLabel="New check-in"
             style={styles.fab}

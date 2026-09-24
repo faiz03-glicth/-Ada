@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
-import {
-  useReducedMotion,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import { useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { haptics } from '@/shared/lib/haptics';
-import { motion } from '@/theme';
+import { motion, useReduceMotion } from '@/theme';
 
 import type { TabFrame } from './TabIndicator';
 import { clampToSlots, nearestSlot, type TabSlot } from './tabSlots';
@@ -28,10 +22,11 @@ const { liquid } = motion;
  * Liquid-glass behaviour for the tab highlight:
  * - on every page change it stretches wide and flat, slides, and springs back round, with a soft haptic;
  * - it can be dragged along the bar (light ticks as it crosses tabs) and settles on the nearest tab.
- * Stretching is skipped with Reduce Motion; the slide then jumps (ReduceMotion.System).
+ * With Reduce Motion (the phone's or the in-app setting) there is no stretch and the highlight jumps
+ * straight to the new tab (ReduceMotion.System).
  */
 export function useLiquidTabIndicator({ active, frames, onSelect }: Options) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReduceMotion();
   const x = useSharedValue(0);
   const stretch = useSharedValue(1);
   const slots = useSharedValue<TabSlot[]>([]);

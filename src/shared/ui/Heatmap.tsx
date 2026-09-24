@@ -1,12 +1,11 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo } from 'react';
 import { View } from 'react-native';
-import { Easing, ReduceMotion, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatGrid } from '@/features/heatmap/domain/grid';
-import { motion } from '@/theme';
+import { motion, useReduceMotion } from '@/theme';
 
-import { HeatCell, type HeatAppear } from './HeatCell';
+import { HeatCell } from './HeatCell';
 import { Text } from './Text';
 
 export interface HeatmapProps {
@@ -24,11 +23,11 @@ export interface HeatmapProps {
   animateIn?: boolean;
 }
 
-const { columnMs, rowMs, durationMs } = motion.heroStagger;
+const { columnMs, rowMs } = motion.heroStagger;
 
 /**
  * Weeks-mode heatmap (columns of up to 7 days). Months mode and month labels arrive with Phase 2.
- * The entrance runs on ONE timing animation (a shared clock) instead of one per cell.
+ * The entrance is a native CSS animation per cell (no per-cell hooks), decided once here.
  * Non-interactive heatmaps are decorative and hidden from screen readers.
  */
 export const Heatmap = memo(function Heatmap({
@@ -41,31 +40,10 @@ export const Heatmap = memo(function Heatmap({
   dayLabels,
   animateIn = false,
 }: HeatmapProps) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReduceMotion();
   const animate = animateIn && !reducedMotion;
-  const clock = useSharedValue(0);
-  const lastRow = Math.max(0, ...grid.columns.map((column) => column.length - 1));
-  const totalMs = Math.max(0, grid.columns.length - 1) * columnMs + lastRow * rowMs + durationMs;
-
-  useEffect(() => {
-    if (!animate) return;
-    clock.set(0);
-    clock.set(
-      withTiming(totalMs, { duration: totalMs, easing: Easing.linear, reduceMotion: ReduceMotion.System }),
-    );
-  }, [animate, totalMs, clock]);
-
-  const appearances = useMemo<HeatAppear[][] | null>(
-    () =>
-      animate
-        ? grid.columns.map((column, c) =>
-            column.map((_, r) => ({ clock, delayMs: c * columnMs + r * rowMs })),
-          )
-        : null,
-    [animate, grid, clock],
-  );
-
   const decorative = !interactive;
+
   return (
     <View
       style={styles.row(gap)}
@@ -91,7 +69,7 @@ export const Heatmap = memo(function Heatmap({
               state={cell.state}
               size={cellSize}
               radius={radius}
-              appear={appearances?.[columnIndex]?.[rowIndex]}
+              appearDelayMs={animate ? columnIndex * columnMs + rowIndex * rowMs : undefined}
               onPress={interactive && onDayPress ? () => onDayPress(cell.key) : undefined}
               accessibilityLabel={cell.label}
             />

@@ -18,6 +18,7 @@ export const semanticColors: Record<ColorScheme, SemanticColors> = {
     danger: '#D23B3B',
     dangerSoft: '#FBE9E9',
     scrim: 'rgba(13,16,14,0.38)',
+    thumb: '#FFFFFF',
   },
   dark: {
     canvas: '#0D100E',
@@ -36,5 +37,6 @@ export const semanticColors: Record<ColorScheme, SemanticColors> = {
     danger: '#FF7070',
     dangerSoft: '#3A1D1D',
     scrim: 'rgba(0,0,0,0.6)',
+    thumb: '#FFFFFF',
   },
 };

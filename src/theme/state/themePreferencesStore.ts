@@ -3,18 +3,20 @@ import { persist } from 'zustand/middleware';
 
 import { persistStorage } from '@/core/storage/persistStorage';
 
-import type { HeatPaletteId, ThemePreference, VisualStyle } from '../types';
+import type { HeatPaletteId, ReduceMotionPreference, ThemePreference, VisualStyle } from '../types';
 
 interface ThemePreferences {
   preference: ThemePreference;
   paletteId: HeatPaletteId;
   style: VisualStyle;
+  reduceMotion: ReduceMotionPreference;
 }
 
 interface ThemePreferencesState extends ThemePreferences {
   setPreference: (preference: ThemePreference) => void;
   setPaletteId: (paletteId: HeatPaletteId) => void;
   setStyle: (style: VisualStyle) => void;
+  setReduceMotion: (reduceMotion: ReduceMotionPreference) => void;
 }
 
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
@@ -22,9 +24,13 @@ export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   paletteId: 'meadow',
   // The approved prototype defaults to Liquid Glass; it only takes effect where the platform supports it.
   style: 'glass',
+  reduceMotion: 'system',
 };
 
-/** State only: persisted theme choices. Resolution and side effects live elsewhere. */
+/**
+ * State only: persisted appearance choices. Resolution and side effects live elsewhere.
+ * Fields added later (like reduceMotion) need no migration: persisted state is merged over these defaults.
+ */
 export const useThemePreferencesStore = create<ThemePreferencesState>()(
   persist(
     (set) => ({
@@ -32,12 +38,18 @@ export const useThemePreferencesStore = create<ThemePreferencesState>()(
       setPreference: (preference) => set({ preference }),
       setPaletteId: (paletteId) => set({ paletteId }),
       setStyle: (style) => set({ style }),
+      setReduceMotion: (reduceMotion) => set({ reduceMotion }),
     }),
     {
       name: 'streak.theme-preferences',
       version: 1,
       storage: persistStorage,
-      partialize: ({ preference, paletteId, style }): ThemePreferences => ({ preference, paletteId, style }),
+      partialize: ({ preference, paletteId, style, reduceMotion }): ThemePreferences => ({
+        preference,
+        paletteId,
+        style,
+        reduceMotion,
+      }),
     },
   ),
 );

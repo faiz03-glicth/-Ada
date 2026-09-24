@@ -1,78 +1,65 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import Animated, { css, cubicBezier } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatCellState } from '@/features/heatmap/domain/grid';
-import { motion, type HeatLevel } from '@/theme';
-
-/** A staggered entrance: every cell reads one shared clock (ms elapsed) and starts after its own delay. */
-export interface HeatAppear {
-  clock: SharedValue<number>;
-  delayMs: number;
-}
+import { motion, useReduceMotion, type HeatLevel } from '@/theme';
 
 export interface HeatCellProps {
   level: HeatLevel;
   size: number;
   radius?: number;
   state?: HeatCellState;
-  /** Plays the "just checked in" pulse. */
+  /** Plays the "just checked in" pulse (skipped with Reduce Motion). */
   pulse?: boolean;
-  /** Grow-and-fade entrance driven by the parent heatmap's clock. */
-  appear?: HeatAppear;
+  /**
+   * Grow-and-fade entrance starting after this many ms. The caller decides whether to animate at all
+   * (Heatmap leaves it out with Reduce Motion), so a grid of cells doesn't each subscribe to the setting.
+   */
+  appearDelayMs?: number;
   onPress?: () => void;
   accessibilityLabel?: string;
 }
 
 const { durationMs, fromScale } = motion.heroStagger;
-// The same curve each cell's own withTiming used before, so the entrance looks unchanged.
-const ease = Easing.inOut(Easing.quad);
 
-/** Only cells that actually animate pay for shared values and a UI-thread style. */
-function AnimatedCell({
-  style,
-  appear,
-  pulse,
-}: {
-  style: StyleProp<ViewStyle>;
-  appear?: HeatAppear;
-  pulse: boolean;
-}) {
-  const reducedMotion = useReducedMotion();
-  const pulseScale = useSharedValue(1);
-  const clock = appear?.clock;
-  const delayMs = appear?.delayMs ?? 0;
+/*
+ * Declarative Reanimated CSS animations: they run natively from the style alone, so an animated cell
+ * costs no hooks, shared values or worklets. That keeps a 98-cell hero cheap to mount.
+ */
+// Easing.inOut(Easing.quad) as a cubic-bezier: the curve these animations have always used.
+const easeInOutQuad = cubicBezier(0.455, 0.03, 0.515, 0.955);
 
-  useEffect(() => {
-    if (!pulse || reducedMotion) return;
-    const half = motion.timing(motion.pulse.durationMs / 2);
-    pulseScale.set(
-      withRepeat(
-        withSequence(withTiming(motion.pulse.scale, half), withTiming(1, half)),
-        motion.pulse.repeats,
-      ),
-    );
-  }, [pulse, reducedMotion, pulseScale]);
+const appear = css.keyframes({
+  from: { opacity: 0, transform: [{ scale: fromScale }] },
+  to: { opacity: 1, transform: [{ scale: 1 }] },
+});
 
-  const animated = useAnimatedStyle(() => {
-    const progress = clock ? ease(Math.min(Math.max((clock.get() - delayMs) / durationMs, 0), 1)) : 1;
-    return {
-      opacity: progress,
-      transform: [{ scale: (fromScale + (1 - fromScale) * progress) * pulseScale.get() }],
-    };
-  });
+const PULSE = {
+  animationName: css.keyframes({
+    '0%': { transform: [{ scale: 1 }] },
+    '50%': { transform: [{ scale: motion.pulse.scale }] },
+    '100%': { transform: [{ scale: 1 }] },
+  }),
+  animationDuration: motion.pulse.durationMs,
+  animationIterationCount: motion.pulse.repeats,
+  animationTimingFunction: easeInOutQuad,
+} as const;
 
-  return <Animated.View style={[style, animated]} />;
+/** 'backwards': the cell holds the first keyframe (hidden, small) while it waits for its turn. */
+const appearAnimation = (delayMs: number) =>
+  ({
+    animationName: appear,
+    animationDuration: durationMs,
+    animationDelay: delayMs,
+    animationTimingFunction: easeInOutQuad,
+    animationFillMode: 'backwards',
+  }) as const;
+
+function PulsingCell({ style }: { style: StyleProp<ViewStyle> }) {
+  const reducedMotion = useReduceMotion();
+  return <Animated.View style={[style, reducedMotion ? null : PULSE]} />;
 }
 
 /** One day on the heatmap. Knows how a level looks, not which counts produce it. */
@@ -82,13 +69,19 @@ export const HeatCell = memo(function HeatCell({
   radius,
   state = 'default',
   pulse = false,
-  appear,
+  appearDelayMs,
   onPress,
   accessibilityLabel,
 }: HeatCellProps) {
   const style = styles.cell(level, size, radius ?? Math.max(2, Math.round(size / 3.5)), state);
   const cell =
-    appear || pulse ? <AnimatedCell style={style} appear={appear} pulse={pulse} /> : <View style={style} />;
+    appearDelayMs !== undefined ? (
+      <Animated.View style={[style, appearAnimation(appearDelayMs)]} />
+    ) : pulse ? (
+      <PulsingCell style={style} />
+    ) : (
+      <View style={style} />
+    );
 
   if (!onPress) return cell;
   return (

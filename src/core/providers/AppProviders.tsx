@@ -5,7 +5,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { ThemeRuntimeBridge } from '@/theme';
+import { MotionRuntimeBridge, ThemeRuntimeBridge } from '@/theme';
 
 import { wireFocusManager } from '../query/focusManager';
 import { wireOnlineManager } from '../query/onlineManager';
@@ -23,6 +23,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <KeyboardProvider>
           <QueryClientProvider client={queryClient}>
             <ThemeRuntimeBridge />
+            <MotionRuntimeBridge />
             {children}
           </QueryClientProvider>
         </KeyboardProvider>

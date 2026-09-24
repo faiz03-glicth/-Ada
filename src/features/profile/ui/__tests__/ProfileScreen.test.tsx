@@ -2,11 +2,14 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
+import { openSettings } from '@/shared/actions';
 import { createFakeRepositories, testProfile, testUser } from '@test/fakes/fakeRepositories';
 import { renderWithApp } from '@test/providers';
 import { SCHEMES } from '@test/render';
 
 import { ProfileScreen } from '../ProfileScreen';
+
+jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
 
 const initial = useAuthStore.getState();
 
@@ -40,6 +43,16 @@ describe.each(SCHEMES)('ProfileScreen in %s', (scheme) => {
     expect(await screen.findByRole('header', { name: 'Guest' })).toBeTruthy();
     expect(screen.getByText('Your check-ins are stored on this device')).toBeTruthy();
     expect(repositories.profile.refreshFromRemote).not.toHaveBeenCalled();
+  });
+});
+
+describe('Appearance', () => {
+  it('opens the Appearance settings', async () => {
+    useAuthStore.getState().setUser(testUser());
+    renderWithApp(<ProfileScreen />);
+    await screen.findByText('person@example.com');
+    fireEvent.press(screen.getByRole('button', { name: 'Appearance' }));
+    expect(openSettings).toHaveBeenCalledWith('appearance');
   });
 });
 

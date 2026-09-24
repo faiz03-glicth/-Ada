@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { useRouteGuards } from '@/features/auth/hooks/useRouteGuards';
+import { onboardingStepOf } from '@/shared/actions/params';
 import { useNavigationMotion } from '@/theme';
 
 /**
@@ -25,7 +26,14 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: theme.colors.canvas },
       }}
     >
-      <Stack.Screen name="onboarding" initialParams={{ step: inSession ? '1' : '0' }} />
+      <Stack.Screen
+        name="onboarding"
+        initialParams={{ step: inSession ? '1' : '0' }}
+        // Welcome is where the flow starts, so replacing a screen with it (Login → Back) is a step back.
+        options={({ route }) => ({
+          animationTypeForReplace: onboardingStepOf(route.params) === 0 ? 'pop' : 'push',
+        })}
+      />
       <Stack.Screen name="login" initialParams={{ intent: hasCompletedOnboarding ? 'existing' : 'new' }} />
     </Stack>
   );

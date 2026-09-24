@@ -22,6 +22,12 @@ export function parseOnboardingStep(raw: RawParam): OnboardingStep {
   return step === '1' ? 1 : step === '2' ? 2 : 0;
 }
 
+/** The onboarding step from a route's params object (e.g. inside navigator screen options). */
+export function onboardingStepOf(params: object | undefined): OnboardingStep {
+  const step = params && 'step' in params ? params.step : undefined;
+  return parseOnboardingStep(typeof step === 'string' ? step : undefined);
+}
+
 export function parseAuthIntent(raw: RawParam, fallback: AuthIntent): AuthIntent {
   const intent = first(raw);
   return intent === 'new' || intent === 'existing' ? intent : fallback;

@@ -10,7 +10,7 @@ import { PhasePlaceholder } from '../PhasePlaceholder';
 import { Screen } from '../Screen';
 import { TabBar } from '../TabBar';
 import { Text } from '../Text';
-import { showInfo, showSuccess } from '../toast';
+import { dismissAllToasts, showInfo, showSuccess } from '../toast';
 
 describe.each(SCHEMES)('layout components in %s', (scheme) => {
   it('Screen renders its content, scrolling or not', () => {
@@ -101,6 +101,8 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
 });
 
 describe('toast helpers', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('shows success toasts with an optional Undo action', () => {
     const undo = jest.fn();
     showSuccess({ title: "You're all set", sub: 'Tap + whenever you do something worth counting.' });
@@ -108,15 +110,33 @@ describe('toast helpers', () => {
     showInfo({ title: 'Coming soon' });
 
     expect(toast.success).toHaveBeenCalledWith("You're all set", {
+      id: "You're all set",
       description: 'Tap + whenever you do something worth counting.',
       action: undefined,
       duration: 3500,
     });
     expect(toast.success).toHaveBeenLastCalledWith('Checked in', {
+      id: 'Checked in',
       description: undefined,
       action: { label: 'Undo', onClick: undo },
       duration: 5000,
     });
-    expect(toast.info).toHaveBeenCalledWith('Coming soon', { description: undefined, duration: 3000 });
+    expect(toast.info).toHaveBeenCalledWith('Coming soon', {
+      id: 'Coming soon',
+      description: undefined,
+      duration: 3000,
+    });
+  });
+
+  it('keys toasts by title, so repeating a message refreshes it instead of stacking a duplicate', () => {
+    showInfo({ title: "You're offline" });
+    showInfo({ title: "You're offline" });
+    const ids = jest.mocked(toast.info).mock.calls.map(([, options]) => options?.id);
+    expect(ids).toEqual(["You're offline", "You're offline"]);
+  });
+
+  it('dismissAllToasts clears every toast', () => {
+    dismissAllToasts();
+    expect(toast.dismiss).toHaveBeenCalledWith();
   });
 });
