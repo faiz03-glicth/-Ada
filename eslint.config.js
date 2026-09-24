@@ -28,6 +28,8 @@ module.exports = defineConfig([
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/ban-ts-comment': 'error',
+      // Library module augmentation (e.g. Unistyles themes) uses `interface X extends Y {}`.
+      '@typescript-eslint/no-empty-object-type': ['error', { allowInterfaces: 'with-single-extends' }],
     },
   },
   { files: ['src/**/*.{ts,tsx}'], rules: { 'no-restricted-imports': restrict([...DATA_SDKS, ROUTER]) } },
