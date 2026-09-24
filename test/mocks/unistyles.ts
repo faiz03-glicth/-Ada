@@ -74,10 +74,11 @@ export const UnistylesRuntime = {
 
 export const useUnistyles = () => ({ theme: currentTheme, rt: miniRuntime });
 
-export const withUnistyles =
-  <P extends object>(
-    Component: ComponentType<P>,
-    mapper?: (theme: Theme, rt: typeof miniRuntime) => Partial<P>,
-  ) =>
-  (props: P) =>
-    createElement(Component, { ...mapper?.(currentTheme, miniRuntime), ...props });
+export function withUnistyles<P extends object>(
+  Component: ComponentType<P>,
+  mapper?: (theme: Theme, rt: typeof miniRuntime) => Partial<P>,
+) {
+  return function WithUnistyles(props: P) {
+    return createElement(Component, { ...mapper?.(currentTheme, miniRuntime), ...props });
+  };
+}

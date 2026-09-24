@@ -46,3 +46,9 @@ LICENSE
 CLAUDE.md
 AGENTS.md
 .claude/
+
+# CI and test reports
+coverage/
+reports/
+eslint-report.json
+gl-code-quality-report.json

@@ -1,0 +1,158 @@
+# Streak · CI/CD
+#
+# quality  → types, lint (GitLab Code Quality report), formatting
+# test     → Jest with JUnit + Cobertura coverage (MR widgets) and a coverage floor;
+#            GitLab SAST and Secret Detection
+# health   → Expo Doctor + SDK version alignment, dependency audit
+# build    → JS bundles for Android and iOS; optional manual EAS cloud build on the default branch
+#
+# Pipelines run for merge requests and branch pushes, never both for the same commit.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+stages:
+  - quality
+  - test
+  - health
+  - build
+
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+variables:
+  NODE_IMAGE: node:24-bookworm
+  npm_config_cache: $CI_PROJECT_DIR/.npm
+  EXPO_NO_TELEMETRY: '1'
+
+default:
+  interruptible: true
+
+# Shared setup for every Node job (kept out of `default` so GitLab's own template jobs aren't affected).
+.node:
+  image: $NODE_IMAGE
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+  before_script:
+    - node --version && npm --version
+    - npm ci --prefer-offline --no-audit --no-fund
+
+# ── quality ────────────────────────────────────────────────────────────────────────────────
+
+typecheck:
+  extends: .node
+  stage: quality
+  needs: []
+  script:
+    # Regenerates Expo Router typed routes, then runs tsc --noEmit (strict).
+    - npm run typecheck
+
+lint:
+  extends: .node
+  stage: quality
+  needs: []
+  script:
+    - npx eslint . --format json --output-file eslint-report.json || true
+    - node scripts/ci/eslint-codequality.js eslint-report.json gl-code-quality-report.json
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    reports:
+      codequality: gl-code-quality-report.json
+    paths: [gl-code-quality-report.json]
+
+format:
+  extends: .node
+  stage: quality
+  needs: []
+  script:
+    - npx prettier --check .
+
+# ── test ──────────────────────────────────────────────────────────────────────────────────
+
+unit-tests:
+  extends: .node
+  stage: test
+  needs: []
+  variables:
+    JEST_JUNIT_OUTPUT_DIR: reports
+    JEST_JUNIT_OUTPUT_NAME: junit.xml
+    JEST_JUNIT_ADD_FILE_ATTRIBUTE: 'true'
+  script:
+    # Fails if coverage drops below the floor in jest.config.js.
+    - npx jest --ci --coverage --reporters=default --reporters=jest-junit
+  coverage: '/Lines\s*:\s*(\d+(?:\.\d+)?)%/'
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    reports:
+      junit: reports/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths: [coverage/]
+
+# ── health ────────────────────────────────────────────────────────────────────────────────
+
+expo-health:
+  extends: .node
+  stage: health
+  needs: []
+  # Expo ships patch releases often; being a patch behind is a warning to act on, not a broken build.
+  allow_failure: true
+  script:
+    # Native dependency versions must match the Expo SDK.
+    - npx expo install --check
+    # Config, dependency and SDK sanity checks.
+    - npx expo-doctor@latest
+
+dependency-audit:
+  image: $NODE_IMAGE
+  stage: health
+  needs: []
+  script:
+    # Reads package-lock.json only; fails on high or critical advisories.
+    - npm audit --audit-level=high
+
+# ── build ─────────────────────────────────────────────────────────────────────────────────
+
+bundle:
+  extends: .node
+  stage: build
+  parallel:
+    matrix:
+      - PLATFORM: [android, ios]
+  script:
+    # Proves the whole app compiles to a Hermes bundle (Metro, Babel, Unistyles, SQL migrations).
+    - npx expo export --platform "$PLATFORM" --output-dir "dist/$PLATFORM"
+    - du -sh "dist/$PLATFORM"
+  artifacts:
+    expire_in: 3 days
+    paths: [dist/]
+
+eas-build:
+  extends: .node
+  stage: build
+  interruptible: false
+  needs: [typecheck, lint, format, unit-tests]
+  rules:
+    # Manual, default branch only, and only once EXPO_TOKEN exists (see docs/CI.md).
+    - if: $EXPO_TOKEN && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: true
+  variables:
+    EAS_ENVIRONMENT: preview
+    EAS_PROFILE: preview
+    EAS_PLATFORM: android
+  script:
+    # Copies the EXPO_PUBLIC_* CI/CD variables into the EAS environment, then queues the cloud build.
+    - node scripts/ci/sync-eas-env.js "$EAS_ENVIRONMENT"
+    - npx eas-cli@24.7.0 build --profile "$EAS_PROFILE" --platform "$EAS_PLATFORM" --non-interactive --no-wait
