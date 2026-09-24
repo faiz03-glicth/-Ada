@@ -41,6 +41,11 @@ module.exports = defineConfig([
   },
   {
     files: ['**/__tests__/**', 'test/**', 'jest.setup.ts'],
-    rules: { 'no-restricted-imports': 'off', '@typescript-eslint/no-non-null-assertion': 'off' },
+    rules: {
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      // jest.mock() factories must use require().
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   },
 ]);

@@ -1,6 +1,10 @@
-import { goBack } from '@/shared/actions';
-import { PhasePlaceholder } from '@/shared/ui';
+import { useLocalSearchParams } from 'expo-router';
 
+import { OnboardingScreen } from '@/features/onboarding/ui/OnboardingScreen';
+import { parseOnboardingStep } from '@/shared/actions/params';
+
+/** One route for all three steps (?step=0|1|2). */
 export default function OnboardingRoute() {
-  return <PhasePlaceholder title="Onboarding" phase={1} onBack={() => goBack()} />;
+  const { step } = useLocalSearchParams<{ step?: string }>();
+  return <OnboardingScreen step={parseOnboardingStep(step)} />;
 }
