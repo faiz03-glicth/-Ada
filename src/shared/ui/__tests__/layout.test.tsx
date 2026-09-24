@@ -1,9 +1,12 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+import { getAnimatedStyle } from 'react-native-reanimated';
 import { toast } from 'sonner-native';
 
 import { TAB_ITEMS } from '@/shared/config/tabs';
+import { motion } from '@/theme';
+import { useThemePreferencesStore } from '@/theme/state/themePreferencesStore';
 import { renderInScheme, SCHEMES, styleOf } from '@test/render';
 
 import { PhasePlaceholder } from '../PhasePlaceholder';
@@ -44,8 +47,8 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     expect(onFabPress).toHaveBeenCalled();
   });
 
-  it('TabBar shows the sliding highlight once tabs are measured, sized to the active tab', () => {
-    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 8, width: 70, height: 48 } } });
+  it('TabBar shows the liquid once tabs are measured, resting on the active tab', () => {
+    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
     const { theme, rerender } = renderInScheme(
       <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
       scheme,
@@ -53,38 +56,72 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     // Decorative and hidden from screen readers; absent until the tabs have been laid out.
     expect(screen.queryByTestId('tab-indicator', { includeHiddenElements: true })).toBeNull();
 
-    fireEvent(screen.getByTestId('tab-home'), 'layout', layout(10));
-    fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(80));
-    const pill = screen.getByTestId('tab-indicator', { includeHiddenElements: true });
-    expect(styleOf(pill)).toMatchObject({
-      width: 70,
-      height: 48,
-      top: 8,
+    fireEvent(screen.getByTestId('tab-home'), 'layout', layout(6));
+    fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(76));
+    const hidden = { includeHiddenElements: true };
+    expect(styleOf(screen.getByTestId('tab-indicator', hidden))).toMatchObject({ top: 10, height: 44 });
+    expect(styleOf(screen.getByTestId('liquid-head', hidden))).toMatchObject({
+      width: 62,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: theme.colors.accentSoft,
     });
 
     rerender(<TabBar items={TAB_ITEMS} active="insights" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
-    expect(screen.getByTestId('tab-indicator', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('tab-indicator', hidden)).toBeTruthy();
   });
 
-  it('dragging the highlight along the bar selects the tab it is released on', async () => {
+  it('magnifies the icon under the liquid, never the others, and not at all with Reduce Motion', () => {
+    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
+    const scaleOf = (id: string) => {
+      const transform = getAnimatedStyle(screen.getByTestId(`tab-${id}-icon`)).transform;
+      const entry = Array.isArray(transform) ? transform.find((t) => 'scale' in t) : undefined;
+      return entry && 'scale' in entry ? entry.scale : undefined;
+    };
+    const renderBar = () => {
+      const view = renderInScheme(
+        <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
+        scheme,
+      );
+      fireEvent(screen.getByTestId('tab-home'), 'layout', layout(6));
+      fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(76));
+      // Animated styles are recomputed on the next frame.
+      act(() => jest.advanceTimersByTime(50));
+      return view;
+    };
+
+    jest.useFakeTimers();
+    const { unmount } = renderBar();
+    expect(scaleOf('home')).toBeCloseTo(1 + motion.liquid.magnify.rest);
+    expect(scaleOf('insights')).toBe(1);
+    unmount();
+
+    act(() => useThemePreferencesStore.getState().setReduceMotion('on'));
+    renderBar();
+    expect(scaleOf('home')).toBe(1);
+    act(() => useThemePreferencesStore.getState().setReduceMotion('system'));
+    jest.useRealTimers();
+  });
+
+  it('dragging the liquid along the bar selects the tab it is released on', async () => {
     const onTabPress = jest.fn();
     renderInScheme(
       <TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />,
       scheme,
     );
-    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 8, width: 70, height: 48 } } });
+    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
     fireEvent(screen.getByTestId('tab-home'), 'layout', layout(10));
     fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(80));
     fireEvent(screen.getByTestId('tab-history'), 'layout', layout(234));
     fireEvent(screen.getByTestId('tab-profile'), 'layout', layout(304));
 
+    // The liquid follows the finger's position on the bar; History's centre is 269.
     act(() => {
       fireGestureHandler(getByGestureTestId('tab-bar-drag'), [
-        { state: State.BEGAN, translationX: 0 },
-        { state: State.ACTIVE, translationX: 40, velocityX: 600 },
-        { translationX: 230, velocityX: 900 },
-        { state: State.END, translationX: 230 },
+        { state: State.BEGAN, x: 45 },
+        { state: State.ACTIVE, x: 85 },
+        { x: 262 },
+        { state: State.END, x: 262 },
       ]);
     });
     await waitFor(() => expect(onTabPress).toHaveBeenCalledWith('history'));

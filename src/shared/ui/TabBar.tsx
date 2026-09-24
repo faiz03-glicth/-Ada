@@ -1,14 +1,18 @@
 import { useCallback, useState } from 'react';
 import { View, type LayoutChangeEvent } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { motion } from '@/theme';
 
 import type { TabId, TabItem } from '../config/tabs';
 import { Icon } from './Icon';
+import { LiquidBubble } from './LiquidBubble';
 import { PressableScale } from './PressableScale';
-import { TabIndicator, type TabFrame } from './TabIndicator';
-import { Text } from './Text';
-import { useLiquidTabIndicator } from './useLiquidTabIndicator';
+import { TabBarItem } from './TabBarItem';
+import type { TabFrame } from './tabSlots';
+import { useLiquidTabBar } from './useLiquidTabBar';
 
 export interface TabBarProps {
   items: readonly TabItem[];
@@ -19,16 +23,22 @@ export interface TabBarProps {
 
 type Frames = Partial<Record<TabId, TabFrame>>;
 
+/** Gap between a tab's edges and the liquid resting on it. */
+const BUBBLE_INSET = 4;
+
 const sameFrame = (a: TabFrame | undefined, b: TabFrame) =>
   a !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 
 /**
- * Floating bottom bar: two tabs, a raised centre "+" (new check-in), two tabs, and a liquid highlight
- * that can also be dragged along the bar to switch tabs.
+ * Floating liquid tab bar: two tabs, a raised centre "+" (new check-in), two tabs. A liquid highlight
+ * flows between tabs (and can be dragged along the bar), icons magnify as it passes, and the bar itself
+ * stretches slightly toward where the liquid is heading. It sits above the safe area and re-measures its
+ * tabs on every layout, so it fits any width or orientation.
  */
 export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   const { theme } = useUnistyles();
   const [frames, setFrames] = useState<Frames>({});
+  const barWidth = useSharedValue(0);
   const half = Math.ceil(items.length / 2);
 
   const selectById = useCallback(
@@ -38,7 +48,8 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
     },
     [items, onTabPress],
   );
-  const { x, stretch, pan } = useLiquidTabIndicator({ active, frames, onSelect: selectById });
+  const liquid = useLiquidTabBar({ active, frames, onSelect: selectById });
+  const { head, tail, stretch, amp, spacing, moveTo } = liquid;
 
   const measure = useCallback((id: TabId, { nativeEvent }: LayoutChangeEvent) => {
     const { x, y, width, height } = nativeEvent.layout;
@@ -46,68 +57,104 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
     setFrames((current) => (sameFrame(current[id], frame) ? current : { ...current, [id]: frame }));
   }, []);
 
+  // The bar grows toward the liquid's destination (its far edge stays put) and flattens a touch.
+  const surface = useAnimatedStyle(() => {
+    const grow = motion.liquid.footerStretch * stretch.get();
+    const direction = Math.sign(head.get() - tail.get());
+    return {
+      transform: [
+        { translateX: (direction * grow * barWidth.get()) / 2 },
+        { scaleX: 1 + grow },
+        { scaleY: 1 - grow * 0.4 },
+      ],
+    };
+  });
+
+  const activeFrame = frames[active];
+  const bubble = activeFrame
+    ? {
+        top: activeFrame.y + BUBBLE_INSET,
+        width: Math.min(activeFrame.width - BUBBLE_INSET * 2, 76),
+        height: activeFrame.height - BUBBLE_INSET * 2,
+      }
+    : null;
+
   const renderTab = (item: TabItem) => {
-    const selected = item.id === active;
-    const color = selected ? theme.colors.accentText : theme.colors.text3;
+    const frame = frames[item.id];
     return (
-      <PressableScale
+      <TabBarItem
         key={item.id}
-        testID={`tab-${item.id}`}
-        onPress={() => onTabPress(item.id)}
+        item={item}
+        selected={item.id === active}
+        center={frame ? frame.x + frame.width / 2 : null}
+        head={head}
+        tail={tail}
+        amp={amp}
+        spacing={spacing}
+        onPress={() => {
+          // Navigation first; the liquid starts at once rather than waiting for the navigator to re-render.
+          onTabPress(item.id);
+          moveTo(item.id);
+        }}
         onLayout={(event) => measure(item.id, event)}
-        accessibilityRole="tab"
-        accessibilityLabel={item.label}
-        accessibilityState={{ selected }}
-        style={styles.tab}
-      >
-        <Icon name={item.icon} size={24} color={color} />
-        <Text variant="mini" weight={selected ? 'semibold' : 'medium'} style={{ color }}>
-          {item.label}
-        </Text>
-      </PressableScale>
+      />
     );
   };
 
   return (
-    <GestureDetector gesture={pan}>
-      <View style={styles.bar} accessibilityRole="tablist">
-        <TabIndicator frame={frames[active] ?? null} x={x} stretch={stretch} />
-        {items.slice(0, half).map(renderTab)}
-        <View style={styles.fabSlot}>
-          <PressableScale
-            testID="fab-check-in"
-            onPress={onFabPress}
-            feedback="liquid"
-            accessibilityRole="button"
-            accessibilityLabel="New check-in"
-            style={styles.fab}
-          >
-            <Icon name="plus" size={30} strokeWidth={2.4} color={theme.colors.onAccent} />
-          </PressableScale>
+    <View style={styles.dock} pointerEvents="box-none">
+      <GestureDetector gesture={liquid.pan}>
+        <View
+          style={styles.bar}
+          accessibilityRole="tablist"
+          onLayout={(event) => barWidth.set(event.nativeEvent.layout.width)}
+        >
+          <Animated.View pointerEvents="none" style={[styles.surface, surface]} />
+          <LiquidBubble size={bubble} head={head} tail={tail} stretch={stretch} opacity={liquid.opacity} />
+          {items.slice(0, half).map(renderTab)}
+          <View style={styles.fabSlot}>
+            <PressableScale
+              testID="fab-check-in"
+              onPress={onFabPress}
+              feedback="liquid"
+              accessibilityRole="button"
+              accessibilityLabel="New check-in"
+              style={styles.fab}
+            >
+              <Icon name="plus" size={30} strokeWidth={2.4} color={theme.colors.onAccent} />
+            </PressableScale>
+          </View>
+          {items.slice(half).map(renderTab)}
         </View>
-        {items.slice(half).map(renderTab)}
-      </View>
-    </GestureDetector>
+      </GestureDetector>
+    </View>
   );
 }
 
 const FAB = 64;
 
 const styles = StyleSheet.create((theme, rt) => ({
-  bar: {
+  dock: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    paddingTop: theme.spacing.sm,
-    paddingHorizontal: 10,
-    paddingBottom: Math.max(rt.insets.bottom, theme.spacing.sm),
-    backgroundColor: theme.glass?.tabBar ?? theme.colors.surface,
-    borderTopWidth: theme.glass ? 0 : 1,
-    borderTopColor: theme.colors.border,
+    bottom: Math.max(rt.insets.bottom, theme.spacing.md),
+    paddingHorizontal: theme.spacing.gutter,
+    alignItems: 'center',
   },
-  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  bar: { width: '100%', maxWidth: 520, flexDirection: 'row', padding: 6 },
+  surface: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: theme.radii.pill,
+    borderWidth: 1,
+    borderColor: theme.glass?.card.edge ?? theme.colors.border,
+    backgroundColor: theme.glass?.tabBar ?? theme.colors.surface,
+    boxShadow: theme.elevation.card ?? undefined,
+  },
   fabSlot: { width: 84, alignItems: 'center' },
   fab: {
     marginTop: -30,
