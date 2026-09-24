@@ -1,8 +1,4 @@
-import { registerRootComponent } from 'expo';
-
-import App from './App';
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
-registerRootComponent(App);
+// Unistyles must be configured before any StyleSheet is parsed, so it loads right after the router entry.
+// See https://www.unistyl.es/v3/guides/expo-router
+import 'expo-router/entry';
+import './src/theme/unistyles';
