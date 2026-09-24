@@ -74,11 +74,12 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/generate-route-types.js && tsc --noEmit",
     "test": "jest",
     "format": "prettier --write .",
     "db:generate": "drizzle-kit generate",
-    "verify": "tsc --noEmit && expo lint && jest"
+    "verify": "npm run typecheck && expo lint && jest",
+    "routes:types": "node scripts/generate-route-types.js"
   },
   "private": true
 }
