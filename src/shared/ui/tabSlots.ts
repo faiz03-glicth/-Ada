@@ -24,33 +24,96 @@ export interface TabSlot {
   width: number;
 }
 
+/** A horizontal stretch of the bar (e.g. the + button, or a tab's content). */
+export interface Span {
+  left: number;
+  right: number;
+}
+
+/** What the liquid must stay clear of: the bar's own ends and anything else in the row (the + button). */
+export interface BarGeometry {
+  bounds: Span;
+  obstacles: readonly Span[];
+}
+
 export interface BubbleMetrics {
   /** Space between the content and the liquid's sides. */
   padX: number;
-  /** The liquid is never narrower than this (a short label still gets a comfortable pill). */
+  /** The liquid's preferred minimum width (a short label still gets a comfortable pill). */
   minWidth: number;
-  /** How far the liquid may extend past its own tab on each side (so a long label is never clipped). */
-  overhang: number;
+  /** Clearance kept from the bar's ends, the + button and other tabs' content. */
+  gap: number;
 }
 
+/** Half the width available around `center` before touching the bar's ends, an obstacle or `others`. */
+export function roomAround(
+  center: number,
+  geometry: BarGeometry,
+  others: readonly Span[],
+  gap: number,
+): number {
+  let room = Math.min(center - geometry.bounds.left, geometry.bounds.right - center) - gap;
+  for (const span of [...geometry.obstacles, ...others]) {
+    if (span.right <= center) room = Math.min(room, center - span.right - gap);
+    else if (span.left >= center) room = Math.min(room, span.left - center - gap);
+  }
+  return Math.max(room, 0);
+}
+
+const centerOf = (frame: TabFrame) => frame.x + frame.width / 2;
+const around = (center: number, width: number): Span => ({
+  left: center - width / 2,
+  right: center + width / 2,
+});
+
 /**
- * One slot per measured tab, in bar order: the liquid wraps the tab's content plus padding, clamped between
- * `minWidth` and the tab's width plus `overhang` each side. Until content is measured, the tab width is used.
+ * One slot per measured tab, in bar order: the liquid wraps the tab's content plus padding, but never
+ * reaches the bar's ends, the + button or a neighbouring tab's content. Unmeasured content uses the tab width.
  */
 export function buildSlots(
   ids: readonly string[],
   frames: Partial<Record<string, TabFrame>>,
   contents: Partial<Record<string, ContentSize>>,
-  { padX, minWidth, overhang }: BubbleMetrics,
+  geometry: BarGeometry,
+  { padX, minWidth, gap }: BubbleMetrics,
 ): TabSlot[] {
   return ids.flatMap((id) => {
     const frame = frames[id];
     if (!frame) return [];
+    const center = centerOf(frame);
+    const neighbours = ids.flatMap((other) => {
+      const f = frames[other];
+      return other !== id && f ? [around(centerOf(f), contents[other]?.width ?? 0)] : [];
+    });
     const content = contents[id];
-    const wanted = content ? content.width + padX * 2 : frame.width;
-    const width = Math.min(Math.max(wanted, minWidth), frame.width + overhang * 2);
-    return [{ id, center: frame.x + frame.width / 2, width }];
+    const wanted = Math.max(content ? content.width + padX * 2 : frame.width, minWidth);
+    return [{ id, center, width: Math.min(wanted, roomAround(center, geometry, neighbours, gap) * 2) }];
   });
+}
+
+/**
+ * The widest each tab's label may be so the liquid can still wrap it with `padX` either side. It only
+ * depends on the bar's geometry and the neighbours' icons (never on measured labels), so it can't feed back
+ * into itself; a label that is wider (large system font) shrinks to fit instead of touching the edge.
+ */
+export function labelLimits(
+  ids: readonly string[],
+  frames: Partial<Record<string, TabFrame>>,
+  geometry: BarGeometry,
+  { padX, gap }: BubbleMetrics,
+  iconSize: number,
+): Partial<Record<string, number>> {
+  const limits: Partial<Record<string, number>> = {};
+  for (const id of ids) {
+    const frame = frames[id];
+    if (!frame) continue;
+    const icons = ids.flatMap((other) => {
+      const f = frames[other];
+      return other !== id && f ? [around(centerOf(f), iconSize)] : [];
+    });
+    limits[id] = Math.max((roomAround(centerOf(frame), geometry, icons, gap) - padX) * 2, iconSize);
+  }
+  return limits;
 }
 
 /** The tab whose centre is closest to `x`. */

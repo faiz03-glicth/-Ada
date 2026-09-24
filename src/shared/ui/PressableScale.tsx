@@ -1,4 +1,5 @@
-import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from 'react-native';
+import type { ComponentProps } from 'react';
+import type { GestureResponderEvent, PressableProps } from 'react-native';
 import { Pressable } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
@@ -8,7 +9,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const { press: liquid } = motion.liquid;
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
-  style?: StyleProp<ViewStyle>;
+  /** Any animated style, including Reanimated CSS transitions (see useStateTransition). */
+  style?: ComponentProps<typeof AnimatedPressable>['style'];
   /** How far the control shrinks while pressed (0.94–0.98). Ignored by the liquid feedback. */
   scaleTo?: number;
   /**

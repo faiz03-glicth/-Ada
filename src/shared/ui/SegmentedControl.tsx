@@ -1,7 +1,13 @@
 import { Pressable, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import Animated from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { useStateTransition } from '@/theme';
+
+import { Crossfade } from './Crossfade';
 import { Text } from './Text';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -18,7 +24,10 @@ export interface SegmentedControlProps<T extends string> {
   testID?: string;
 }
 
-/** A row of mutually exclusive choices (a radio group), highlighted in the accent tint. */
+/**
+ * A row of mutually exclusive choices (a radio group). The selection's tint and its label's colour and
+ * weight ease from the old segment to the new one; with Reduce Motion they change instantly.
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -26,12 +35,15 @@ export function SegmentedControl<T extends string>({
   accessibilityLabel,
   testID,
 }: SegmentedControlProps<T>) {
+  const { theme } = useUnistyles();
+  const tint = useStateTransition('backgroundColor', 'normal');
+
   return (
     <View style={styles.track} accessibilityRole="radiogroup" accessibilityLabel={accessibilityLabel}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
-          <Pressable
+          <AnimatedPressable
             key={option.value}
             testID={testID && `${testID}-${option.value}`}
             onPress={() => {
@@ -40,16 +52,27 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="radio"
             accessibilityLabel={option.label}
             accessibilityState={{ checked: selected }}
-            style={styles.segment(selected)}
+            // Unselected segments take the track's colour (not transparent) so the tint eases cleanly.
+            style={[
+              styles.segment,
+              { backgroundColor: selected ? theme.colors.accentSoft : theme.colors.subtle },
+              tint,
+            ]}
           >
-            <Text
-              variant="footnote"
-              weight={selected ? 'semibold' : 'medium'}
-              tone={selected ? 'accent' : 'secondary'}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
+            <Crossfade
+              active={selected}
+              on={
+                <Text variant="footnote" weight="semibold" tone="accent">
+                  {option.label}
+                </Text>
+              }
+              off={
+                <Text variant="footnote" weight="medium" tone="secondary">
+                  {option.label}
+                </Text>
+              }
+            />
+          </AnimatedPressable>
         );
       })}
     </View>
@@ -64,12 +87,11 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.control,
     backgroundColor: theme.colors.subtle,
   },
-  segment: (selected: boolean) => ({
+  segment: {
     flex: 1,
     minHeight: 38,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: theme.radii.control - 3,
-    backgroundColor: selected ? theme.colors.accentSoft : 'transparent',
-  }),
+  },
 }));

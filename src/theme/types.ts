@@ -24,7 +24,6 @@ export interface SemanticColors {
   text2: string;
   text3: string;
   accent: string;
-  accentPress: string;
   accentSoft: string;
   accentText: string;
   onAccent: string;

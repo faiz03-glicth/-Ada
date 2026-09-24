@@ -1,5 +1,8 @@
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import Animated from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { useStateTransition } from '@/theme';
 
 export interface PageDotsProps {
   count: number;
@@ -8,6 +11,9 @@ export interface PageDotsProps {
 
 /** Progress dots; the active one is a 20×6 accent pill. Read as "Step 2 of 3". */
 export function PageDots({ count, index }: PageDotsProps) {
+  const { theme } = useUnistyles();
+  // Width is animated on purpose here: the growing pill IS the step change (tiny, isolated views).
+  const step = useStateTransition(['width', 'backgroundColor'], 'normal');
   return (
     <View
       style={styles.row}
@@ -17,7 +23,17 @@ export function PageDots({ count, index }: PageDotsProps) {
       accessibilityValue={{ min: 1, max: count, now: index + 1 }}
     >
       {Array.from({ length: count }, (_, i) => (
-        <View key={i} style={styles.dot(i === index)} />
+        <Animated.View
+          key={i}
+          style={[
+            styles.dot,
+            {
+              width: i === index ? 20 : 6,
+              backgroundColor: i === index ? theme.colors.accent : theme.colors.border2,
+            },
+            step,
+          ]}
+        />
       ))}
     </View>
   );
@@ -25,10 +41,5 @@ export function PageDots({ count, index }: PageDotsProps) {
 
 const styles = StyleSheet.create((theme) => ({
   row: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  dot: (active: boolean) => ({
-    width: active ? 20 : 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: active ? theme.colors.accent : theme.colors.border2,
-  }),
+  dot: { height: 6, borderRadius: 3 },
 }));

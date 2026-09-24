@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import Animated from 'react-native-reanimated';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { useStateTransition } from '@/theme';
 
 import { Text } from './Text';
 
@@ -32,6 +35,8 @@ export function OtpInput({
 }: OtpInputProps) {
   const input = useRef<TextInput>(null);
   const [focused, setFocused] = useState(autoFocus);
+  const { theme } = useUnistyles();
+  const outline = useStateTransition('borderColor');
 
   const handleChange = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, length);
@@ -45,15 +50,26 @@ export function OtpInput({
         {Array.from({ length }, (_, index) => {
           const active = focused && index === Math.min(value.length, length - 1);
           return (
-            <View
+            <Animated.View
               key={index}
-              style={styles.box(active, Boolean(error))}
+              style={[
+                styles.box,
+                // Outlined at rest (3:1); the active box and errors take over smoothly as you type.
+                {
+                  borderColor: error
+                    ? theme.colors.danger
+                    : active
+                      ? theme.colors.accent
+                      : theme.colors.border2,
+                },
+                outline,
+              ]}
               importantForAccessibility="no-hide-descendants"
             >
               <Text variant="title3" style={styles.digit}>
                 {value[index] ?? ''}
               </Text>
-            </View>
+            </Animated.View>
           );
         })}
         <TextInput
@@ -87,16 +103,15 @@ export function OtpInput({
 const styles = StyleSheet.create((theme) => ({
   wrapper: { gap: theme.spacing.sm },
   boxes: { flexDirection: 'row', gap: theme.spacing.sm },
-  box: (active: boolean, invalid: boolean) => ({
+  box: {
     flex: 1,
     height: 54,
     borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.subtle,
     borderWidth: 1.5,
-    borderColor: invalid ? theme.colors.danger : active ? theme.colors.accent : 'transparent',
-  }),
+  },
   digit: { fontVariant: ['tabular-nums'] },
   // Nearly transparent (not 0) so the OS still offers code autofill on it.
   hiddenInput: { opacity: 0.02, color: 'transparent' },

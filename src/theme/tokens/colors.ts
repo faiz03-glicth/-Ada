@@ -1,29 +1,33 @@
 import type { ColorScheme, SemanticColors } from '../types';
+import { BRAND_GREEN, ON_BRAND } from './brand';
 
 /**
- * Semantic colours. Light is designed for clarity in bright surroundings, not inverted from dark:
- * - hierarchy: canvas → surface (cards) → surfaceRaised (floating chrome) → subtle (fills) → accentSoft (active);
- * - text and the icons/labels that carry meaning meet WCAG AA on their surfaces (text ≥ 4.5:1, control
- *   outlines ≥ 3:1), without pure black on pure white (a calmer, lower-glare pairing);
- * - accent (brand green) means "primary action / selected", danger means "error"; neither is decoration.
+ * Semantic colours, designed per scheme rather than inverted. Grounded in the colour-mode research the app
+ * follows (Andrew 2026, Tuan et al. 2026, Atsani et al. 2025):
+ * - Light is for clarity in bright surroundings. Large areas are soft off-whites, never a glaring pure
+ *   white page; elevation is shown by small steps in lightness (canvas → surface → surfaceRaised, the
+ *   nearest being the lightest), not by heavy shadows.
+ * - Text meets WCAG AA on every surface it sits on (≥ 4.5:1) without pure black on pure white; control
+ *   outlines (inputs, switches, selectable tiles) reach 3:1, because interactive areas are where apps most
+ *   often fall short.
+ * - The brand green is identical in both schemes (see brand.ts); only its surroundings adapt.
  */
 export const semanticColors: Record<ColorScheme, SemanticColors> = {
   light: {
-    canvas: '#F6F7F5',
-    surface: '#FFFFFF',
+    canvas: '#F2F5F1',
+    surface: '#FCFDFB',
     surfaceRaised: '#FFFFFF',
-    subtle: '#EFF2EE',
-    border: '#E4E8E3',
-    border2: '#8A968D',
+    subtle: '#EAEEE9',
+    border: '#DCE2DB',
+    border2: '#858F87',
     text: '#101713',
     text2: '#56625A',
-    text3: '#68736B',
-    accent: '#16843F',
-    accentPress: '#126E35',
+    text3: '#646F67',
+    accent: BRAND_GREEN,
     accentSoft: '#E2F4E8',
     accentText: '#136B38',
-    onAccent: '#FFFFFF',
-    danger: '#D23B3B',
+    onAccent: ON_BRAND,
+    danger: '#C9302F',
     dangerSoft: '#FBE9E9',
     scrim: 'rgba(13,16,14,0.38)',
     thumb: '#FFFFFF',
@@ -37,12 +41,11 @@ export const semanticColors: Record<ColorScheme, SemanticColors> = {
     border2: '#626D66',
     text: '#EDF2EE',
     text2: '#A4AEA7',
-    text3: '#7C877F',
-    accent: '#3DD68C',
-    accentPress: '#2FB574',
+    text3: '#838E86',
+    accent: BRAND_GREEN,
     accentSoft: '#15301F',
     accentText: '#5FE3A1',
-    onAccent: '#06140C',
+    onAccent: ON_BRAND,
     danger: '#FF7070',
     dangerSoft: '#3A1D1D',
     scrim: 'rgba(0,0,0,0.6)',

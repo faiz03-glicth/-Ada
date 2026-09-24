@@ -1,9 +1,11 @@
 import type { ActivityColorKey, ColorScheme } from '../types';
+import { BRAND_GREEN } from './brand';
 
 export const activityColors: Record<ColorScheme, Record<ActivityColorKey, string>> = {
   light: {
-    green: '#1E9A52',
-    orange: '#E8770F',
+    green: BRAND_GREEN,
+    // Deepened from #E8770F so the icon clears the 3:1 non-text minimum on light cards.
+    orange: '#D66A0B',
     purple: '#8B4FD8',
     blue: '#2F74D0',
     pink: '#D2457F',

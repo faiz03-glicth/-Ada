@@ -1,4 +1,31 @@
-import { ReduceMotion, type WithSpringConfig, type WithTimingConfig } from 'react-native-reanimated';
+import {
+  cubicBezier,
+  Easing,
+  ReduceMotion,
+  type WithSpringConfig,
+  type WithTimingConfig,
+} from 'react-native-reanimated';
+
+/**
+ * The four curves of the app's motion language (cubic-bezier control points):
+ * - standard: most state changes (colour, opacity, selection);
+ * - emphasized: larger surfaces arriving (decelerates hard, feels deliberate);
+ * - enter: things appearing (starts fast, settles gently);
+ * - exit: things leaving (starts gently, speeds away).
+ */
+const CURVES = {
+  standard: [0.2, 0, 0, 1],
+  emphasized: [0.05, 0.7, 0.1, 1],
+  enter: [0, 0, 0.2, 1],
+  exit: [0.4, 0, 1, 1],
+} as const;
+type Points = readonly [number, number, number, number];
+const curves = <T>(make: (...points: Points) => T) => ({
+  standard: make(...CURVES.standard),
+  emphasized: make(...CURVES.emphasized),
+  enter: make(...CURVES.enter),
+  exit: make(...CURVES.exit),
+});
 
 /**
  * One shared spring for presses, sheets, tabs and screen changes.
@@ -12,6 +39,19 @@ const timing = (duration: number): WithTimingConfig => ({ duration, reduceMotion
 export const motion = {
   spring,
   timing,
+  /**
+   * The three speeds every state transition uses: fast for small changes (a border, a label colour),
+   * normal for a control changing state (selection, active tab), emphasized for whole-surface changes.
+   */
+  speed: { fast: 140, normal: 220, emphasized: 320 },
+  /** The curves, for Reanimated timing animations (`withTiming(…, { easing })`). */
+  ease: curves(Easing.bezier),
+  /**
+   * Theme changes fade through the new background: a veil in the new canvas colour covers the screen
+   * (exit curve), the theme is swapped underneath while it's fully covered, then the veil lifts (enter
+   * curve). `hold` gives the native theme swap two frames to land before the veil lifts.
+   */
+  themeFade: { in: 110, hold: 34, out: 190 },
   duration: { fast: 120, base: 240, slow: 500 },
   press: { scale: 0.96, subtleScale: 0.985 },
   /** Onboarding hero: cells grow from 0.3 and fade in, staggered by column then row. */
@@ -79,10 +119,10 @@ export const motion = {
     /**
      * Icon magnification, by distance to the liquid (1 tab-spacing away = none): `peak` scale boost while
      * the liquid moves or is dragged, `rest` for the selected icon once still, and a small lift in points.
-     * Sized so a magnified icon stays inside the bubble's padding.
-     * With the 1.3 falloff: 0% → 1.16×, 25% → 1.11×, 50% → 1.06×, 75% → 1.03×, 100% → 1.00×.
+     * Sized so a magnified icon always stays inside the liquid's 7pt padding, even mid-stretch.
+     * With the 1.3 falloff: 0% → 1.12×, 25% → 1.08×, 50% → 1.05×, 75% → 1.02×, 100% → 1.00×.
      */
-    magnify: { peak: 0.16, rest: 0.05, liftPt: 1.5, falloffPower: 1.3, stretchGain: 2.5 },
+    magnify: { peak: 0.12, rest: 0.04, liftPt: 1, falloffPower: 1.3, stretchGain: 2.5 },
     /** The footer's widest stretch toward the liquid's destination, as a fraction of its width. */
     footerStretch: 0.03,
     /** Reduce Motion: the liquid jumps, then fades in at the new tab (opacity only, so always played). */
@@ -109,3 +149,10 @@ export const motion = {
     },
   },
 } as const;
+
+/**
+ * The same curves for Reanimated CSS transitions (`transitionTimingFunction`). Kept OUT of `motion` on
+ * purpose: these are class instances, which can't be copied to the UI thread, and worklets capture parts
+ * of `motion` (everything inside it must stay plain data; see motion.test).
+ */
+export const cssEase = curves(cubicBezier);
