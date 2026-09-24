@@ -1,7 +1,7 @@
 import { ActivityIndicator, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import type { Theme } from '@/theme';
+import { useStateTransition, type Theme } from '@/theme';
 
 import { Icon } from './Icon';
 import type { IconName } from './icons';
@@ -52,6 +52,7 @@ export function Button({
   const color = foreground(theme, variant);
   const inactive = disabled || loading;
   const textOnly = variant === 'ghost' || variant === 'quiet';
+  const fade = useStateTransition('opacity');
 
   return (
     <PressableScale
@@ -63,7 +64,7 @@ export function Button({
       accessibilityLabel={loading ? (loadingLabel ?? label) : (accessibilityLabel ?? label)}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={[styles.base(variant, size), disabled && !loading && styles.disabled]}
+      style={[styles.base(variant, size), { opacity: disabled && !loading ? 0.45 : 1 }, fade]}
     >
       <View style={styles.content}>
         {loading ? (
@@ -101,5 +102,4 @@ const styles = StyleSheet.create((theme) => ({
     }[variant],
   }),
   content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm },
-  disabled: { opacity: 0.45 },
 }));

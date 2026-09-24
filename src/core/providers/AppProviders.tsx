@@ -22,9 +22,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <SafeAreaProvider>
         <KeyboardProvider>
           <QueryClientProvider client={queryClient}>
-            <ThemeRuntimeBridge />
             <MotionRuntimeBridge />
             {children}
+            {/* Last, so its theme-change veil sits above the whole app. */}
+            <ThemeRuntimeBridge />
           </QueryClientProvider>
         </KeyboardProvider>
       </SafeAreaProvider>

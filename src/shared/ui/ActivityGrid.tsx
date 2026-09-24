@@ -2,6 +2,7 @@ import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Activity } from '@/features/activities/domain/Activity';
+import { useStateTransition } from '@/theme';
 
 import { ActivityBadge } from './ActivityBadge';
 import { Icon } from './Icon';
@@ -39,6 +40,7 @@ export function ActivityGrid({
   onAddPress,
 }: ActivityGridProps) {
   const { theme } = useUnistyles();
+  const select = useStateTransition(['backgroundColor', 'borderColor'], 'normal');
   const tiles: Tile[] = [
     ...activities.map((activity): Tile => ({ kind: 'activity', activity })),
     ...(showAdd && onAddPress ? [{ kind: 'add' } as const] : []),
@@ -76,7 +78,16 @@ export function ActivityGrid({
                 accessibilityRole={selection === 'multi' ? 'checkbox' : 'radio'}
                 accessibilityLabel={activity.name}
                 accessibilityState={selection === 'multi' ? { checked: selected } : { selected }}
-                style={styles.tile(selected, theme.activity[activity.color])}
+                style={[
+                  styles.tile,
+                  {
+                    borderColor: selected ? theme.activity[activity.color] : theme.colors.subtle,
+                    backgroundColor: selected
+                      ? (theme.glass?.strong ?? theme.colors.surface)
+                      : theme.colors.subtle,
+                  },
+                  select,
+                ]}
               >
                 <ActivityBadge activity={activity} size={38} />
                 <Text variant="footnote" weight="medium" numberOfLines={1}>
@@ -95,19 +106,18 @@ const styles = StyleSheet.create((theme) => ({
   grid: { gap: theme.spacing.sm },
   row: { flexDirection: 'row', gap: theme.spacing.sm },
   spacer: { flex: 1 },
-  tile: (selected: boolean, color: string) => ({
+  // Colours are set inline so selection can ease between them (useStateTransition).
+  tile: {
     flex: 1,
     minHeight: 88,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.sm,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: selected ? color : 'transparent',
-    backgroundColor: selected ? (theme.glass?.strong ?? theme.colors.surface) : theme.colors.subtle,
-  }),
+  },
   addTile: {
     flex: 1,
     minHeight: 88,

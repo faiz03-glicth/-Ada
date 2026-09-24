@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { motion } from '@/theme';
@@ -11,8 +11,8 @@ import { Icon } from './Icon';
 import { LiquidBubble } from './LiquidBubble';
 import { PressableScale } from './PressableScale';
 import { TabBarItem } from './TabBarItem';
-import { buildSlots, type BubbleMetrics, type ContentSize, type TabFrame } from './tabSlots';
 import { useLiquidTabBar } from './useLiquidTabBar';
+import { useTabBarLayout } from './useTabBarLayout';
 
 export interface TabBarProps {
   items: readonly TabItem[];
@@ -21,42 +21,22 @@ export interface TabBarProps {
   onFabPress: () => void;
 }
 
-/**
- * The liquid wraps each tab's icon + label with 14pt of breathing room each side and 6pt above and below
- * (room for the icon's magnification too), is at least 64pt wide, and may reach 6pt past its tab so a
- * long label on a narrow phone is never clipped.
- */
-const BUBBLE: BubbleMetrics = { padX: 14, minWidth: 64, overhang: 6 };
-const BUBBLE_PAD_Y = 6;
-
-const sameSize = (a: ContentSize | undefined, b: ContentSize) =>
-  a !== undefined && a.width === b.width && a.height === b.height;
-const sameFrame = (a: TabFrame | undefined, b: TabFrame) =>
-  sameSize(a, b) && a !== undefined && a.x === b.x && a.y === b.y;
+const FAB = 64;
+// Read into a constant: a worklet that touched `motion` itself would copy the whole token object.
+const { footerStretch } = motion.liquid;
 
 /**
  * Floating liquid tab bar: two tabs, a raised centre "+" (new check-in), two tabs. Navigation state comes
  * in through `active`; the liquid only draws it (useLiquidTabBar), so a tap navigates immediately and the
- * animation can never hold it up. Tabs and their contents are measured, so it fits any width, orientation
- * or label; it sits above the safe area.
+ * animation can never hold it up. Everything is measured (useTabBarLayout), so the liquid always wraps
+ * its tab's icon and label, on any width, orientation or font size; the bar sits above the safe area.
  */
 export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   const { theme } = useUnistyles();
-  const [frames, setFrames] = useState<Partial<Record<TabId, TabFrame>>>({});
-  const [contents, setContents] = useState<Partial<Record<TabId, ContentSize>>>({});
-  const barWidth = useSharedValue(0);
   const half = Math.ceil(items.length / 2);
+  const ids = useMemo(() => items.map((item) => item.id), [items]);
+  const layout = useTabBarLayout(ids, active, FAB);
 
-  const slots = useMemo(
-    () =>
-      buildSlots(
-        items.map((item) => item.id),
-        frames,
-        contents,
-        BUBBLE,
-      ),
-    [items, frames, contents],
-  );
   const selectById = useCallback(
     (id: string) => {
       const tab = items.find((item) => item.id === id);
@@ -64,22 +44,13 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
     },
     [items, onTabPress],
   );
-  const liquid = useLiquidTabBar({ active, slots, onSelect: selectById });
-
-  const measureTab = useCallback((id: TabId, { nativeEvent }: LayoutChangeEvent) => {
-    const { x, y, width, height } = nativeEvent.layout;
-    const frame = { x, y, width, height };
-    setFrames((current) => (sameFrame(current[id], frame) ? current : { ...current, [id]: frame }));
-  }, []);
-  const measureContent = useCallback((id: TabId, { nativeEvent }: LayoutChangeEvent) => {
-    const size = { width: nativeEvent.layout.width, height: nativeEvent.layout.height };
-    setContents((current) => (sameSize(current[id], size) ? current : { ...current, [id]: size }));
-  }, []);
+  const liquid = useLiquidTabBar({ active, slots: layout.slots, onSelect: selectById });
 
   // The bar grows toward the liquid's destination (its far edge stays put) and flattens a touch.
   const { head, trail, stretch } = liquid;
+  const { barWidth } = layout;
   const surface = useAnimatedStyle(() => {
-    const grow = motion.liquid.footerStretch * stretch.get();
+    const grow = footerStretch * stretch.get();
     const direction = Math.sign(head.get() - trail.get());
     return {
       transform: [
@@ -90,20 +61,15 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
     };
   });
 
-  // Every tab shares one bubble height: the tallest content plus padding, centred on the tab row.
-  const row = frames[active];
-  const tallest = Math.max(0, ...Object.values(contents).map((size) => size?.height ?? 0));
-  const bubbleHeight = tallest > 0 ? tallest + BUBBLE_PAD_Y * 2 : (row?.height ?? 0);
-  const bubble = row ? { top: row.y + (row.height - bubbleHeight) / 2, height: bubbleHeight } : null;
-
   const renderTab = (item: TabItem) => {
-    const frame = frames[item.id];
+    const frame = layout.frames[item.id];
     return (
       <TabBarItem
         key={item.id}
         item={item}
         selected={item.id === active}
         center={frame ? frame.x + frame.width / 2 : null}
+        labelMaxWidth={layout.labels[item.id]}
         head={head}
         trail={trail}
         amp={liquid.amp}
@@ -113,8 +79,8 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
           onTabPress(item.id);
           liquid.moveTo(item.id);
         }}
-        onLayout={(event) => measureTab(item.id, event)}
-        onContentLayout={(event) => measureContent(item.id, event)}
+        onLayout={(event) => layout.measureTab(item.id, event)}
+        onContentLayout={(event) => layout.measureContent(item.id, event)}
       />
     );
   };
@@ -122,14 +88,10 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   return (
     <View style={styles.dock} pointerEvents="box-none">
       <GestureDetector gesture={liquid.pan}>
-        <View
-          style={styles.bar}
-          accessibilityRole="tablist"
-          onLayout={(event) => barWidth.set(event.nativeEvent.layout.width)}
-        >
+        <View style={styles.bar} accessibilityRole="tablist" onLayout={layout.measureBar}>
           <Animated.View pointerEvents="none" style={[styles.surface, surface]} />
           <LiquidBubble
-            frame={bubble}
+            frame={layout.bubble}
             head={head}
             trail={trail}
             headWidth={liquid.headWidth}
@@ -138,7 +100,7 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
             opacity={liquid.opacity}
           />
           {items.slice(0, half).map(renderTab)}
-          <View style={styles.fabSlot}>
+          <View style={styles.fabSlot} onLayout={layout.measureFab}>
             <PressableScale
               testID="fab-check-in"
               onPress={onFabPress}
@@ -157,8 +119,6 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
   );
 }
 
-const FAB = 64;
-
 const styles = StyleSheet.create((theme, rt) => ({
   dock: {
     position: 'absolute',
@@ -168,7 +128,8 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingHorizontal: theme.spacing.gutter,
     alignItems: 'center',
   },
-  bar: { width: '100%', maxWidth: 520, flexDirection: 'row', padding: 6 },
+  // Slim side padding: every point goes to the tabs, so labels keep room inside the liquid.
+  bar: { width: '100%', maxWidth: 520, flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 4 },
   surface: {
     position: 'absolute',
     left: 0,
@@ -181,8 +142,8 @@ const styles = StyleSheet.create((theme, rt) => ({
     backgroundColor: theme.glass?.tabBar ?? theme.colors.surfaceRaised,
     boxShadow: theme.elevation.card ?? undefined,
   },
-  // The FAB (64) plus 6pt either side: narrower than before, leaving the tabs more room for the liquid.
-  fabSlot: { width: FAB + 12, alignItems: 'center' },
+  // The FAB plus 2pt either side; the liquid keeps its own clearance from the FAB (useTabBarLayout).
+  fabSlot: { width: FAB + 4, alignItems: 'center' },
   fab: {
     marginTop: -30,
     width: FAB,

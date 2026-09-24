@@ -1,6 +1,8 @@
 import {
   buildSlots,
   clampToSlots,
+  labelLimits,
+  roomAround,
   distanceToSpan,
   falloff,
   nearestSlot,
@@ -58,29 +60,59 @@ describe('tab slots', () => {
 });
 
 describe('liquid sizing and reach', () => {
+  // A 360pt phone: 4pt bar padding, 63pt tabs, the 68pt + slot (64pt button) between Insights and History.
   const frames = {
-    home: { x: 6, y: 6, width: 58, height: 52 },
-    insights: { x: 64, y: 6, width: 58, height: 52 },
+    home: { x: 4, y: 5, width: 63, height: 58 },
+    insights: { x: 67, y: 5, width: 63, height: 58 },
+    history: { x: 198, y: 5, width: 63, height: 58 },
   };
-  const metrics = { padX: 14, minWidth: 64, overhang: 6 };
+  const geometry = { bounds: { left: 0, right: 328 }, obstacles: [{ left: 132, right: 196 }] };
+  const metrics = { padX: 12, minWidth: 56, gap: 3 };
 
-  it('wraps each tab’s content with padding, within a minimum and the tab plus its overhang', () => {
+  it('wraps each tab’s content with padding, above a preferred minimum', () => {
+    const slots = buildSlots(['home'], frames, { home: { width: 30, height: 43 } }, geometry, metrics);
+    // 30 + 24 = 54 → the 56 minimum.
+    expect(slots).toEqual([{ id: 'home', center: 35.5, width: 56 }]);
+  });
+
+  it('never reaches the + button, the bar’s end or a neighbour’s content', () => {
     const slots = buildSlots(
-      ['home', 'insights', 'history'],
+      ['home', 'insights'],
       frames,
-      { home: { width: 30, height: 40 }, insights: { width: 48, height: 40 } },
+      { home: { width: 50, height: 43 }, insights: { width: 44, height: 43 } },
+      geometry,
       metrics,
     );
-    // Home: 30 + 28 = 58 → raised to the 64 minimum. Insights: 48 + 28 = 76 → capped at 58 + 12 = 70,
-    // still 11pt clear of its 48pt label on each side. History isn't measured yet, so it has no slot.
+    // Home: 50 + 24 = 74 wanted, but the bar's left end is 35.5 away (−3 clearance) → 65.
+    // Insights: 68 wanted; the + button starts 33.5 to its right (−3) → 61, still 8.5pt clear of its label.
     expect(slots).toEqual([
-      { id: 'home', center: 35, width: 64 },
-      { id: 'insights', center: 93, width: 70 },
+      { id: 'home', center: 35.5, width: 65 },
+      { id: 'insights', center: 98.5, width: 61 },
     ]);
   });
 
+  it('limits labels so the liquid can always wrap them with padding (they shrink instead of touching)', () => {
+    const limits = labelLimits(['home', 'insights', 'history'], frames, geometry, metrics, 24);
+    // Insights: 30.5pt of room to the + button, minus 12pt padding, both sides → 37pt of label.
+    expect(limits.insights).toBe(37);
+    expect(limits.history).toBe(37);
+    expect(limits.home).toBe(41);
+  });
+
   it('falls back to the tab width until the content has been measured', () => {
-    expect(buildSlots(['home'], frames, {}, metrics)).toEqual([{ id: 'home', center: 35, width: 64 }]);
+    expect(buildSlots(['home'], frames, {}, geometry, metrics)).toEqual([
+      { id: 'home', center: 35.5, width: 63 },
+    ]);
+  });
+
+  it('measures room around a point, zero when there is none', () => {
+    expect(roomAround(50, { bounds: { left: 0, right: 100 }, obstacles: [] }, [], 0)).toBe(50);
+    expect(
+      roomAround(50, { bounds: { left: 0, right: 100 }, obstacles: [{ left: 55, right: 70 }] }, [], 3),
+    ).toBe(2);
+    expect(
+      roomAround(50, { bounds: { left: 0, right: 100 }, obstacles: [{ left: 51, right: 70 }] }, [], 3),
+    ).toBe(0);
   });
 
   it('never draws the tail more than maxGap behind the head (one body, no ghost bubble)', () => {

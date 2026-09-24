@@ -1,6 +1,9 @@
 import { forwardRef, useState } from 'react';
 import { TextInput, View, type TextInputProps } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { useStateTransition } from '@/theme';
 
 import { Icon } from './Icon';
 import type { IconName } from './icons';
@@ -19,10 +22,13 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 ) {
   const { theme } = useUnistyles();
   const [focused, setFocused] = useState(false);
+  const outline = useStateTransition('borderColor');
+  // A visible outline at rest (3:1) says "you can type here"; focus and errors take over smoothly.
+  const borderColor = error ? theme.colors.danger : focused ? theme.colors.accent : theme.colors.border2;
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.field(focused, Boolean(error))}>
+      <Animated.View style={[styles.field, { borderColor }, outline]}>
         {icon && <Icon name={icon} size={18} color={theme.colors.text3} />}
         <TextInput
           ref={ref}
@@ -42,7 +48,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           }}
           style={styles.input}
         />
-      </View>
+      </Animated.View>
       {error ? (
         <Text variant="footnote" tone="danger" accessibilityLiveRegion="polite" accessibilityRole="alert">
           {error}
@@ -54,17 +60,16 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 
 const styles = StyleSheet.create((theme) => ({
   wrapper: { gap: theme.spacing.xs + 2 },
-  field: (focused: boolean, invalid: boolean) => ({
+  field: {
     minHeight: 48,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     paddingHorizontal: 14,
     borderRadius: theme.radii.control,
     borderWidth: 1.5,
-    borderColor: invalid ? theme.colors.danger : focused ? theme.colors.accent : 'transparent',
     backgroundColor: theme.colors.subtle,
-  }),
+  },
   input: {
     flex: 1,
     paddingVertical: theme.spacing.md,

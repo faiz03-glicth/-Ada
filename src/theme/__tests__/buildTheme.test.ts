@@ -55,10 +55,12 @@ describe('buildTheme', () => {
     const light = buildTheme('light', 'meadow', 'classic');
     const dark = buildTheme('dark', 'meadow', 'classic');
 
-    expect(light.colors.canvas).toBe('#F6F7F5');
+    // A soft green-grey page (less glare than near-white), with lighter cards above it.
+    expect(light.colors.canvas).toBe('#F2F5F1');
     expect(dark.colors.canvas).toBe('#0D100E');
-    // Darkened from the prototype's #1E9A52 so white button labels meet WCAG AA (see contrast.test).
-    expect(light.colors.accent).toBe('#16843F');
+    // The brand green, identical in both schemes.
+    expect(light.colors.accent).toBe('#1E9A52');
+    expect(dark.colors.accent).toBe('#1E9A52');
     expect(dark.colors.onAccent).toBe('#06140C');
     expect(light.heat).toEqual(['#EAEEE9', '#C3E8C9', '#7FD095', '#36AA62', '#146B3A']);
     expect(dark.heat).toEqual(['#1F2622', '#1A4A2F', '#1F7A45', '#34B267', '#6BE8A4']);
