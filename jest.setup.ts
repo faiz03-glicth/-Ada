@@ -14,6 +14,10 @@ jest.mock('expo-sqlite/kv-store', () => {
   return { __esModule: true, Storage, default: Storage };
 });
 
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 jest.mock('expo-glass-effect', () => ({
   isLiquidGlassAvailable: () => false,
   isGlassEffectAPIAvailable: () => false,
