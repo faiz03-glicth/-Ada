@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from '@/shared/ui';
+import { ProfileScreen } from '@/features/profile/ui/ProfileScreen';
 
 export default function ProfileRoute() {
-  return <PhasePlaceholder title="Profile" phase={1} withTabBar />;
+  return <ProfileScreen />;
 }

@@ -1,0 +1,26 @@
+# An invalid email keeps "Send code" disabled; a valid one enables it. No code is sent.
+appId: com.faiz.streak
+name: Login email validation
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    id: 'onboarding-have-account'
+- assertVisible: 'Welcome back'
+- tapOn:
+    id: 'login-continue-email'
+- assertVisible: 'Continue with email'
+
+- tapOn:
+    id: 'login-email-input'
+- inputText: 'not-an-email'
+- assertVisible:
+    id: 'login-send-code'
+    enabled: false
+
+- eraseText: 20
+- inputText: 'person@example.com'
+- assertVisible:
+    id: 'login-send-code'
+    enabled: true
