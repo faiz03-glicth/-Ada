@@ -1,0 +1,49 @@
+# Welcome → Get started → Skip → steps 1–2 → Start tracking → Home placeholder → Profile → Log out → Login (existing)
+# Needs a development build with a valid .env / EAS environment (otherwise the app opens on the config error screen).
+appId: com.faiz.streak
+name: Onboarding as a guest, then log out
+---
+- launchApp:
+    clearState: true
+
+# Step 0 · Welcome
+- assertVisible: 'See your consistency at a glance'
+- tapOn:
+    id: 'onboarding-primary'
+
+# Login (new) → Skip continues as a guest
+- assertVisible: 'Create your Streak account'
+- tapOn:
+    id: 'login-skip'
+
+# Step 1 · Intensity
+- assertVisible:
+    id: 'onboarding-step-1'
+- assertVisible: 'Peak'
+- tapOn:
+    id: 'onboarding-primary'
+
+# Step 2 · Setup
+- assertVisible: 'What will you track?'
+- assertVisible: 'Daily reminder at 8:00 PM'
+- tapOn:
+    id: 'onboarding-primary'
+
+# Home (Phase 2 placeholder) with the confirmation toast
+- assertVisible: "You're all set"
+- assertVisible:
+    id: 'placeholder-Home'
+
+# Profile → Log out → confirm
+- tapOn:
+    id: 'tab-profile'
+- assertVisible: 'Guest'
+- tapOn:
+    id: 'profile-log-out'
+- assertVisible: 'Log out?'
+- tapOn: 'Log out'
+
+# Back on Login, returning-user variant
+- assertVisible: 'Welcome back'
+- assertNotVisible:
+    id: 'login-skip'

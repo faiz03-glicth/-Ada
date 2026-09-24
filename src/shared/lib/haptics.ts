@@ -7,6 +7,8 @@ const fire = (effect: () => Promise<void>) => {
 
 export const haptics = {
   light: () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
+  /** A gentle, cushioned bump: used when the page changes. */
+  soft: () => fire(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)),
   selection: () => fire(() => Haptics.selectionAsync()),
   success: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
 };

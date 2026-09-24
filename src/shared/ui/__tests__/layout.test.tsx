@@ -1,8 +1,10 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { State } from 'react-native-gesture-handler';
+import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { toast } from 'sonner-native';
 
 import { TAB_ITEMS } from '@/shared/config/tabs';
-import { renderInScheme, SCHEMES } from '@test/render';
+import { renderInScheme, SCHEMES, styleOf } from '@test/render';
 
 import { PhasePlaceholder } from '../PhasePlaceholder';
 import { Screen } from '../Screen';
@@ -40,6 +42,53 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     expect(onTabPress).toHaveBeenCalledWith('insights');
     fireEvent.press(screen.getByRole('button', { name: 'New check-in' }));
     expect(onFabPress).toHaveBeenCalled();
+  });
+
+  it('TabBar shows the sliding highlight once tabs are measured, sized to the active tab', () => {
+    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 8, width: 70, height: 48 } } });
+    const { theme, rerender } = renderInScheme(
+      <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
+      scheme,
+    );
+    // Decorative and hidden from screen readers; absent until the tabs have been laid out.
+    expect(screen.queryByTestId('tab-indicator', { includeHiddenElements: true })).toBeNull();
+
+    fireEvent(screen.getByTestId('tab-home'), 'layout', layout(10));
+    fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(80));
+    const pill = screen.getByTestId('tab-indicator', { includeHiddenElements: true });
+    expect(styleOf(pill)).toMatchObject({
+      width: 70,
+      height: 48,
+      top: 8,
+      backgroundColor: theme.colors.accentSoft,
+    });
+
+    rerender(<TabBar items={TAB_ITEMS} active="insights" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
+    expect(screen.getByTestId('tab-indicator', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('dragging the highlight along the bar selects the tab it is released on', async () => {
+    const onTabPress = jest.fn();
+    renderInScheme(
+      <TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />,
+      scheme,
+    );
+    const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 8, width: 70, height: 48 } } });
+    fireEvent(screen.getByTestId('tab-home'), 'layout', layout(10));
+    fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(80));
+    fireEvent(screen.getByTestId('tab-history'), 'layout', layout(234));
+    fireEvent(screen.getByTestId('tab-profile'), 'layout', layout(304));
+
+    act(() => {
+      fireGestureHandler(getByGestureTestId('tab-bar-drag'), [
+        { state: State.BEGAN, translationX: 0 },
+        { state: State.ACTIVE, translationX: 40, velocityX: 600 },
+        { translationX: 230, velocityX: 900 },
+        { state: State.END, translationX: 230 },
+      ]);
+    });
+    await waitFor(() => expect(onTabPress).toHaveBeenCalledWith('history'));
+    expect(onTabPress).toHaveBeenCalledTimes(1);
   });
 
   it('PhasePlaceholder names the phase and has a working back button', () => {

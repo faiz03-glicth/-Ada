@@ -1,6 +1,10 @@
 // Global Jest setup: replaces native modules with in-memory or no-op versions.
 
 require('react-native-reanimated').setUpTests();
+require('react-native-gesture-handler/jestSetup');
+
+// TanStack Query batches UI notifications on setTimeout; run them synchronously so updates land inside act().
+require('@tanstack/react-query').notifyManager.setScheduler((callback: () => void) => callback());
 
 jest.mock('react-native-unistyles', () => require('./test/mocks/unistyles'));
 

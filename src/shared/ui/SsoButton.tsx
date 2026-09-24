@@ -56,6 +56,7 @@ export function SsoButton({
     if (Platform.OS !== 'ios') return null;
     return (
       <View
+        testID="apple-sso"
         style={disabled && styles.disabled}
         pointerEvents={disabled ? 'none' : 'auto'}
         accessibilityState={{ disabled }}

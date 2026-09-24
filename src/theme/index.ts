@@ -14,5 +14,6 @@ export { buildTheme } from './buildTheme';
 export { HEAT_PALETTE_IDS } from './tokens/heatPalettes';
 export { motion } from './tokens/motion';
 export { resolveScheme, useResolvedScheme } from './hooks/useResolvedScheme';
+export { useNavigationMotion, type NavigationMotion } from './hooks/useNavigationMotion';
 export { isGlassSupported, resolveVisualStyle, useGlassSupport } from './hooks/useGlassSupport';
 export { ThemeRuntimeBridge } from './sync/ThemeRuntimeBridge';
