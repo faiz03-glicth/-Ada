@@ -1,6 +1,15 @@
 // Global Jest setup: replaces native modules with in-memory or no-op versions.
 
+require('react-native-reanimated').setUpTests();
+
 jest.mock('react-native-unistyles', () => require('./test/mocks/unistyles'));
+
+jest.mock(
+  'react-native-safe-area-context',
+  () => require('react-native-safe-area-context/jest/mock').default,
+);
+
+jest.mock('react-native-keyboard-controller', () => require('react-native-keyboard-controller/jest'));
 
 // Synchronous SQLite key/value store used by Zustand persist.
 jest.mock('expo-sqlite/kv-store', () => {
@@ -25,4 +34,33 @@ jest.mock('@react-native-community/netinfo', () =>
 jest.mock('expo-glass-effect', () => ({
   isLiquidGlassAvailable: () => false,
   isGlassEffectAPIAvailable: () => false,
+}));
+
+jest.mock('expo-apple-authentication', () => require('./test/mocks/appleAuthentication'));
+
+// Lucide ships ESM-only .mjs; icons carry no behaviour, so each becomes an empty view named after the icon.
+jest.mock('lucide-react-native', () => {
+  const { createElement } = require('react');
+  const { View } = require('react-native');
+  const cache = new Map<string, unknown>();
+  return new Proxy(
+    { __esModule: true },
+    {
+      get: (target: Record<string, unknown>, name: string) => {
+        if (name in target) return target[name];
+        if (!cache.has(name)) cache.set(name, () => createElement(View, { testID: `icon-${name}` }));
+        return cache.get(name);
+      },
+    },
+  );
+});
+
+jest.mock('sonner-native', () => ({
+  toast: Object.assign(jest.fn(), {
+    success: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    dismiss: jest.fn(),
+  }),
+  Toaster: () => null,
 }));

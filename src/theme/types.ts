@@ -72,8 +72,8 @@ export interface Radii {
 }
 
 export interface Elevation {
-  /** CSS-style box-shadow string (New Architecture), or 'none'. */
-  card: string;
+  /** CSS-style box-shadow string (New Architecture), or null for no shadow. */
+  card: string | null;
   raised: string;
 }
 
