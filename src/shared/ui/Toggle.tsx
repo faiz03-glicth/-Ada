@@ -21,7 +21,7 @@ export function Toggle({ value, onChange, accessibilityLabel, disabled = false, 
       accessibilityLabel={accessibilityLabel}
       trackColor={{ false: theme.colors.border2, true: theme.colors.accent }}
       ios_backgroundColor={theme.colors.border2}
-      thumbColor="#FFFFFF"
+      thumbColor={theme.colors.thumb}
     />
   );
 }

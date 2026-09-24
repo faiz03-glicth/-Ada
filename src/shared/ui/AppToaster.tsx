@@ -1,11 +1,26 @@
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { Toaster } from 'sonner-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-/** Global toast host styled like the prototype: inverted colours, above the tab bar. */
+import { dismissAllToasts } from './toast';
+
+/**
+ * Global toast host styled like the prototype: inverted colours, above the tab bar.
+ * Toasts are momentary: leaving the app clears them. JS timers pause in the background, so otherwise a
+ * toast would still be on screen when the app is reopened, long after it stopped being relevant.
+ */
 export function AppToaster() {
   const { theme } = useUnistyles();
   const background = theme.glass?.toast.background ?? theme.colors.text;
   const foreground = theme.glass?.toast.foreground ?? theme.colors.canvas;
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background') dismissAllToasts();
+    });
+    return () => subscription.remove();
+  }, []);
 
   return (
     <Toaster

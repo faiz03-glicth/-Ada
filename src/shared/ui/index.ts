@@ -22,6 +22,7 @@ export { PageDots } from './PageDots';
 export { PhasePlaceholder } from './PhasePlaceholder';
 export { PressableScale } from './PressableScale';
 export { Screen } from './Screen';
+export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { SsoButton } from './SsoButton';
 export { TabBar } from './TabBar';
 export { Text } from './Text';

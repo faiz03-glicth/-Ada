@@ -29,6 +29,7 @@ describe('finishOnboarding', () => {
     expect(auth.continueAsGuest).toHaveBeenCalled();
     expect(useAuthStore.getState()).toMatchObject({ status: 'guest', hasCompletedOnboarding: true });
     expect(toast.success).toHaveBeenCalledWith("You're all set", {
+      id: "You're all set",
       description: 'Tap + whenever you do something worth counting.',
       action: undefined,
       duration: 3500,

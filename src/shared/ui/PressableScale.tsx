@@ -1,41 +1,56 @@
 import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import { Pressable } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
-import { motion } from '@/theme';
+import { motion, useReduceMotion } from '@/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const { press: liquid } = motion.liquid;
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   style?: StyleProp<ViewStyle>;
-  /** How far the control shrinks while pressed (0.94–0.98). */
+  /** How far the control shrinks while pressed (0.94–0.98). Ignored by the liquid feedback. */
   scaleTo?: number;
+  /**
+   * 'scale' (default): shrinks on press-in, springs back on release.
+   * 'liquid': squashes wide and flat while held, then wobbles back like a droplet (the + button).
+   */
+  feedback?: 'scale' | 'liquid';
 }
 
-/** The shared press feedback: scale down on press-in, spring back on release. Off with Reduce Motion. */
+/** The shared press feedback. Decorative, so it is skipped entirely with Reduce Motion. */
 export function PressableScale({
   scaleTo = motion.press.scale,
+  feedback = 'scale',
   style,
   onPressIn,
   onPressOut,
   ...rest
 }: PressableScaleProps) {
-  const reducedMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+  const reducedMotion = useReduceMotion();
+  const isLiquid = feedback === 'liquid';
+  // 0 = at rest, 1 = fully pressed. Springs may overshoot past either end, which is what makes it wobble.
+  const pressed = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const p = pressed.get();
+    if (isLiquid) {
+      return {
+        transform: [{ scaleX: 1 + (liquid.squashX - 1) * p }, { scaleY: 1 + (liquid.squashY - 1) * p }],
+      };
+    }
+    return { transform: [{ scale: 1 + (scaleTo - 1) * p }] };
+  });
 
   const handlePressIn = (event: GestureResponderEvent) => {
-    if (!reducedMotion) scale.set(withTiming(scaleTo, motion.timing(motion.duration.fast)));
+    if (!reducedMotion) {
+      pressed.set(isLiquid ? withSpring(1, liquid.hold) : withTiming(1, motion.timing(motion.duration.fast)));
+    }
     onPressIn?.(event);
   };
   const handlePressOut = (event: GestureResponderEvent) => {
-    scale.set(withSpring(1, motion.spring));
+    // Always released (also if Reduce Motion turned on mid-press); ReduceMotion.System makes it a jump then.
+    pressed.set(withSpring(0, isLiquid ? liquid.release : motion.spring));
     onPressOut?.(event);
   };
 

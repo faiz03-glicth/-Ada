@@ -5,7 +5,7 @@ import { Avatar, Card, ListRow, NavBar, Screen, Text } from '@/shared/ui';
 
 import { useProfileViewModel } from './useProfileViewModel';
 
-/** Phase 1 placeholder Profile tab: identity and Log out. */
+/** Phase 1 placeholder Profile tab: identity, Appearance and Log out. */
 export function ProfileScreen() {
   const vm = useProfileViewModel();
 
@@ -24,10 +24,19 @@ export function ProfileScreen() {
         ) : null}
       </View>
       <Card tight>
+        <ListRow
+          title="Appearance"
+          icon="palette"
+          trailing="chevron"
+          onPress={vm.onAppearance}
+          testID="profile-appearance"
+        />
+      </Card>
+      <Card tight>
         <ListRow title="Log out" danger centered onPress={vm.onLogOut} testID="profile-log-out" />
       </Card>
       <Text variant="caption" tone="tertiary" align="center">
-        Settings, appearance and your stats arrive in Phase 4.
+        More settings and your stats arrive in Phase 4.
       </Text>
     </Screen>
   );

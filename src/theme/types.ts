@@ -2,6 +2,8 @@ import type { TextStyle } from 'react-native';
 
 export type ColorScheme = 'light' | 'dark';
 export type ThemePreference = 'system' | 'light' | 'dark';
+/** 'system' follows the phone's Reduce Motion setting; 'on'/'off' override it for this app. */
+export type ReduceMotionPreference = 'system' | 'on' | 'off';
 export type VisualStyle = 'glass' | 'classic';
 export type HeatPaletteId = 'meadow' | 'ocean' | 'violet' | 'amber';
 export type ActivityColorKey = 'green' | 'orange' | 'purple' | 'blue' | 'pink' | 'teal';
@@ -13,6 +15,8 @@ export type HeatSteps = readonly [string, string, string, string, string];
 export interface SemanticColors {
   canvas: string;
   surface: string;
+  /** Floating chrome above cards (tab bar); in dark mode a lighter tone stands in for the shadow. */
+  surfaceRaised: string;
   subtle: string;
   border: string;
   border2: string;
@@ -27,6 +31,8 @@ export interface SemanticColors {
   danger: string;
   dangerSoft: string;
   scrim: string;
+  /** Switch knob: white in both schemes, like the platform's own switches. */
+  thumb: string;
 }
 
 export type TypographyVariant =
