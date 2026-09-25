@@ -1,6 +1,6 @@
 import type { CSSKeyframesRule } from 'react-native-reanimated';
 
-import { checkInPulse, heatmapReveal, staggerIn } from '../motion/cssMotion';
+import { checkInPulse, heatmapFall, heatmapReveal, heatmapStack, staggerIn } from '../motion/cssMotion';
 
 /*
  * Jest never hands keyframes to Reanimated's native side, so invalid ones only crash on a phone
@@ -14,6 +14,22 @@ const { normalizeKeyframeSelector } =
 
 const rules: [string, CSSKeyframesRule][] = [
   ['heatmap reveal', heatmapReveal(0, 0).animationName],
+  // Every row's fall (each has its own release time) in each of the four tumbles.
+  ...[0, 1, 2, 3, 4, 5, 6].flatMap((row) =>
+    [0, 1, 2, 3].map((column): [string, CSSKeyframesRule] => [
+      `heatmap fall (row ${row}, column ${column})`,
+      heatmapFall(column, row, 7).animationName,
+    ]),
+  ),
+  // Stacking on the Welcome heatmap (20 diagonals) and the login mark (5).
+  ...[0, 10, 19].map((diagonal): [string, CSSKeyframesRule] => [
+    `heatmap stack (diagonal ${diagonal} of 20)`,
+    heatmapStack(diagonal, 0, 20).animationName,
+  ]),
+  ...[0, 4].map((diagonal): [string, CSSKeyframesRule] => [
+    `logo stack (diagonal ${diagonal} of 5)`,
+    heatmapStack(diagonal, 0, 5).animationName,
+  ]),
   ['stagger-in', staggerIn(0).animationName],
   ['check-in pulse', checkInPulse.animationName],
 ];

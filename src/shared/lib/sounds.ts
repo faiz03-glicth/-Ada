@@ -7,8 +7,17 @@ type ExpoAudio = typeof import('expo-audio');
 
 /** Every sound effect, by meaning. Files live in assets/sounds. */
 const SOURCES = {
-  /** The login mark flipping over: a soft whoosh, then one rising note per diagonal as its heatmap waves in. */
+  /**
+   * The login mark tossed like a coin: the flick as the flip starts, the spin, the catch as it lands, then a
+   * wooden clack as each diagonal of its new face stacks in.
+   */
   logoFlip: require('../../../assets/sounds/logo-flip.wav') as number,
+  /** The Welcome heatmap collapsing: wooden blocks falling, one impact per row (see heatmapRebuild). */
+  heatmapCollapse: require('../../../assets/sounds/heatmap-collapse.wav') as number,
+  /** The Welcome heatmap stacking itself back up: a wooden clack on each heard landing. */
+  heatmapStack: require('../../../assets/sounds/heatmap-stack.wav') as number,
+  /** A page of the onboarding pager settling into place: one wooden block set down. */
+  pageClack: require('../../../assets/sounds/page-clack.wav') as number,
 } as const;
 export type SoundName = keyof typeof SOURCES;
 

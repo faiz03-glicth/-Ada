@@ -2,7 +2,7 @@ import { useWindowDimensions, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatGrid } from '@/features/heatmap/domain/grid';
-import { Card, Heatmap } from '@/shared/ui';
+import { Card, HoldableHeatmap } from '@/shared/ui';
 
 import { HERO_COLUMNS } from '../../config/heroPattern';
 import { StepHeading } from './StepHeading';
@@ -24,7 +24,8 @@ export function WelcomeStep({ grid, title, body }: { grid: HeatGrid; title: stri
     <>
       <Card style={styles.card}>
         <View style={styles.hero}>
-          <Heatmap grid={grid} cellSize={cell} gap={GAP} radius={6} animateIn />
+          {/* Press and hold: it collapses and stacks itself back up, with sound and haptics. */}
+          <HoldableHeatmap grid={grid} cellSize={cell} gap={GAP} radius={6} animateIn />
         </View>
       </Card>
       <StepHeading title={title} body={body} style={styles.heading} />

@@ -14,6 +14,19 @@ function chargeStyle(progress: number): Haptics.ImpactFeedbackStyle {
   return Haptics.ImpactFeedbackStyle.Heavy;
 }
 
+export type ImpactStrength = 'light' | 'medium' | 'heavy';
+const STRENGTH: Record<ImpactStrength, Haptics.ImpactFeedbackStyle> = {
+  light: Haptics.ImpactFeedbackStyle.Light,
+  medium: Haptics.ImpactFeedbackStyle.Medium,
+  heavy: Haptics.ImpactFeedbackStyle.Heavy,
+};
+
+/** One beat of a haptic sequence: how hard, and when (ms from the sequence's start). */
+export interface HapticBeat {
+  atMs: number;
+  strength: ImpactStrength;
+}
+
 export interface HapticRamp {
   /** How long the charge takes to fill (ms). */
   durationMs: number;
@@ -27,6 +40,16 @@ export const haptics = {
   soft: () => impact(Haptics.ImpactFeedbackStyle.Soft),
   selection: () => fire(() => Haptics.selectionAsync()),
   success: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
+  /** One impact at a chosen strength. */
+  impact: (strength: ImpactStrength) => impact(STRENGTH[strength]),
+  /**
+   * Impacts at set times, e.g. in step with an animation and its sound. Returns `stop`, which cancels the
+   * beats still to come (for leaving the screen, or a new sequence taking over).
+   */
+  sequence: (beats: readonly HapticBeat[]): (() => void) => {
+    const timers = beats.map(({ atMs, strength }) => setTimeout(() => haptics.impact(strength), atMs));
+    return () => timers.forEach(clearTimeout);
+  },
   /** One tick of a charge, as strong as the charge is full (0…1). */
   charge: (progress: number) => impact(chargeStyle(progress)),
   /**

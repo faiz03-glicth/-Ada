@@ -3,16 +3,21 @@ import { Pressable } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { haptics } from '@/shared/lib/haptics';
+import { haptics, type HapticBeat } from '@/shared/lib/haptics';
 import { sounds } from '@/shared/lib/sounds';
-import { motion, useHoldMotion, useMotion, type HeatLevel } from '@/theme';
+import { flipLandingMs, motion, restAtMs, useHoldMotion, useMotion, type HeatLevel } from '@/theme';
 
 import { HeatCell } from './HeatCell';
 
 const PATTERN: readonly HeatLevel[] = [2, 4, 3, 1, 3, 4, 3, 2, 4];
 const COLUMNS = 3;
-// The new face waves in as it turns back toward you (a quarter of the flip before it lands).
-const WAVE_AFTER_TURN = motion.hold.flipMs / 4;
+const DIAGONALS = 2 * COLUMNS - 1;
+
+/** Felt as each diagonal of the new face lands, on its wooden clack; the last a little firmer. */
+const LANDING_BEATS: readonly HapticBeat[] = Array.from({ length: DIAGONALS }, (_, diagonal) => ({
+  atMs: motion.heatmapRebuild.audioLeadMs + flipLandingMs(diagonal),
+  strength: diagonal === DIAGONALS - 1 ? 'medium' : 'light',
+}));
 
 export interface LogoMarkProps {
   size?: number;
@@ -20,7 +25,8 @@ export interface LogoMarkProps {
   animateIn?: boolean;
   /**
    * Press and hold to play: the mark tenses and trembles while haptic ticks build up; held long enough, it
-   * flips over and its heatmap waves back in, top-left to bottom-right. A tap is a light tick.
+   * flips over and its blocks stack back in like the Welcome heatmap's, diagonal by diagonal from the
+   * top-left, each landing on a wooden clack and a tick. A tap is a light tick.
    */
   holdable?: boolean;
 }
@@ -28,19 +34,40 @@ export interface LogoMarkProps {
 /** The Streak mark: a 3×3 patch of heatmap. Proportions scale from the 76pt login version. */
 export function LogoMark({ size = 76, animateIn = false, holdable = false }: LogoMarkProps) {
   const motionSystem = useMotion();
-  // Each completed hold draws the mark afresh (a new generation of cells, waving in).
-  const [generation, setGeneration] = useState(0);
+  // The face on show: the first one (with its entrance), a new one stacking in after a flip, or at rest.
+  // The cells are never remounted: the face changes by swapping their animation, edge-on.
+  const [face, setFace] = useState<'first' | 'stacking' | 'rest'>('first');
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRamp = useRef<(() => void) | null>(null);
+  const stopBeats = useRef<(() => void) | null>(null);
   const hold = useHoldMotion({
-    // The release you feel and hear: a success tap, and the flip's sound (timed to the flip and the wave).
+    // The release: a success tap; then, if the mark moves, the flip's whoosh and its blocks' clacks and
+    // ticks (one timeline: the sound, heatmapStack and these beats all land together).
     onCharged: () => {
       haptics.success();
+      if (motionSystem.reduced) return;
       sounds.play('logoFlip');
+      stopBeats.current?.();
+      stopBeats.current = haptics.sequence(LANDING_BEATS);
     },
-    onTurn: () => setGeneration((current) => current + 1),
+    onTurn: () => {
+      setFace('stacking');
+      if (settle.current) clearTimeout(settle.current);
+      // Every block landed: drop the animations (they're still holding "landed" then, so nothing changes).
+      settle.current = setTimeout(() => setFace('rest'), restAtMs(DIAGONALS));
+    },
   });
 
-  useEffect(() => () => stopRamp.current?.(), []);
+  useEffect(() => {
+    const ramp = stopRamp;
+    const beats = stopBeats;
+    const settling = settle;
+    return () => {
+      ramp.current?.();
+      beats.current?.();
+      if (settling.current) clearTimeout(settling.current);
+    };
+  }, []);
   // Loaded before the first hold, so the sound starts exactly with the flip.
   useEffect(() => {
     if (holdable) sounds.preload('logoFlip');
@@ -61,14 +88,12 @@ export function LogoMark({ size = 76, animateIn = false, holdable = false }: Log
         const column = index % COLUMNS;
         const row = Math.floor(index / COLUMNS);
         const appear =
-          generation > 0
-            ? motionSystem.heatmapWave(column, row, WAVE_AFTER_TURN)
-            : animateIn
+          face === 'stacking'
+            ? motionSystem.heatmapStack(column, row, DIAGONALS)
+            : face === 'first' && animateIn
               ? motionSystem.heatmapReveal(column, row)
               : null;
-        return (
-          <HeatCell key={`${generation}:${index}`} level={level} size={cell} radius={4} appear={appear} />
-        );
+        return <HeatCell key={index} level={level} size={cell} radius={4} appear={appear} />;
       })}
     </Animated.View>
   );

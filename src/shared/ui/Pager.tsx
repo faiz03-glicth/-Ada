@@ -13,9 +13,24 @@ import Animated, {
 import { StyleSheet } from 'react-native-unistyles';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
+import { haptics } from '@/shared/lib/haptics';
+import { sounds } from '@/shared/lib/sounds';
 import { motion } from '@/theme';
 
 const slide = motion.timing(motion.pager.slideMs);
+const { landWithin } = motion.pager;
+
+/**
+ * The page the pager has just landed on, or null. Landed means: no finger on it, and within `landWithin`
+ * of a page's spot (the snap's last points crawl, so waiting for it to stop would sound late). A page that
+ * was already the landed one doesn't land again (a swipe that snaps back is silent).
+ */
+export function landedPage(position: number, landed: number, count: number): number | null {
+  'worklet';
+  const nearest = Math.min(count - 1, Math.max(0, Math.round(position)));
+  if (nearest === landed || Math.abs(position - nearest) > landWithin) return null;
+  return nearest;
+}
 
 export interface PagerProps {
   /** How many pages. */
@@ -35,8 +50,9 @@ export interface PagerProps {
 /**
  * Pages side by side that the person swipes through (onboarding). A swipe moves them with the finger and
  * the platform snaps to the nearest page; setting `index` slides a whole page on the motion system's curve.
- * A finger always wins: touching the pager mid-slide stops the slide where it is. Only the current page is
- * exposed to screen readers. Nothing re-renders per frame: `progress` is a UI-thread value.
+ * A finger always wins: touching the pager mid-slide stops the slide where it is. Each page that settles
+ * into place is set down like a block: a wooden clack and a soft tick. Only the current page is exposed to
+ * screen readers. Nothing re-renders per frame: `progress` is a UI-thread value.
  */
 export function Pager({ count, index, onIndexChange, progress, inset, renderPage }: PagerProps) {
   const { width } = useWindowDimensions();
@@ -46,8 +62,17 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
   // The last page the pager reported, on both threads (a swipe reports; the JS copy tells the two apart).
   const reported = useRef(index);
   const reportedOnUI = useSharedValue(index);
+  // The page it last settled on, and whether a finger is on it (a held page hasn't landed yet).
+  const landedOnUI = useSharedValue(index);
+  const dragging = useSharedValue(false);
   const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set([index]));
   if (!seen.has(index)) setSeen(new Set(seen).add(index));
+
+  // A page settling into place: one block set down.
+  const setDown = useCallback(() => {
+    sounds.play('pageClack');
+    haptics.soft();
+  }, []);
 
   const report = useCallback(
     (page: number) => {
@@ -56,6 +81,8 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
     },
     [onIndexChange],
   );
+
+  useEffect(() => sounds.preload('pageClack'), []);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -66,9 +93,25 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
         reportedOnUI.set(nearest);
         scheduleOnRN(report, nearest);
       }
+      if (dragging.get()) return;
+      const page = landedPage(position, landedOnUI.get(), count);
+      if (page !== null) {
+        landedOnUI.set(page);
+        scheduleOnRN(setDown);
+      }
     },
     onBeginDrag: () => {
+      dragging.set(true);
       cancelAnimation(target);
+    },
+    // Let go exactly on a page (no snap to follow): it has landed now.
+    onEndDrag: (event) => {
+      dragging.set(false);
+      const page = landedPage(event.contentOffset.x / width, landedOnUI.get(), count);
+      if (page !== null) {
+        landedOnUI.set(page);
+        scheduleOnRN(setDown);
+      }
     },
   });
 

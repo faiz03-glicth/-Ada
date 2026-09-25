@@ -6,3 +6,5 @@ package-lock.json
 coverage
 reports
 .npm
+# Written by scripts/sounds/build-sounds.py
+assets/sounds/sound-timings.json

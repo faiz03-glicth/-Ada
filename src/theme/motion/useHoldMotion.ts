@@ -25,22 +25,34 @@ const shiver = {
   reduceMotion: ReduceMotion.Never,
 };
 
-export interface HoldMotionEvents {
-  /** Held long enough: the charge is full (the flip starts now). */
+export interface HoldMotionOptions {
+  /** Held long enough: the charge is full (a flip, if any, starts now). */
   onCharged: () => void;
-  /** The flip is edge-on: the moment to change what the face shows. Also called with Reduce Motion. */
-  onTurn: () => void;
+  /**
+   * Flip on release: called when the flip is edge-on, the moment to change what the face shows (also
+   * called, at once, with Reduce Motion). Without it the element just settles back once charged.
+   */
+  onTurn?: () => void;
+  /** How much it tenses and trembles at full charge (default: motion.hold). Wide things should move less. */
+  squeeze?: number;
+  trembleDeg?: number;
 }
 
 /**
  * hold: press and hold to charge something up. While held it tenses and trembles more and more; held for
- * `hold.chargeMs` it flips (edge-on at the halfway point, so its face can change unseen) and settles.
+ * `hold.chargeMs` it lets go: it flips (edge-on at the halfway point, so its face can change unseen) and
+ * settles, or, without a flip, simply settles and leaves the rest to its owner.
  * Let go early and it springs back. Only one flip at a time; everything stops cleanly on unmount.
  * With Reduce Motion nothing moves, but the hold still completes (events fire, the face still changes).
  *
  * Pair it with a haptic ramp for the feel (haptics.ramp) — this hook only owns the motion.
  */
-export function useHoldMotion({ onCharged, onTurn }: HoldMotionEvents) {
+export function useHoldMotion({
+  onCharged,
+  onTurn,
+  squeeze = hold.squeeze,
+  trembleDeg = hold.trembleDeg,
+}: HoldMotionOptions) {
   const reduced = useReduceMotion();
   const charge = useSharedValue(0);
   const tremble = useSharedValue(0);
@@ -64,11 +76,12 @@ export function useHoldMotion({ onCharged, onTurn }: HoldMotionEvents) {
   );
 
   const complete = useCallback(() => {
-    flipping.current = true;
     onCharged();
     cancelAnimation(tremble);
     tremble.set(0);
     charge.set(withSpring(0, spring));
+    if (!onTurn) return;
+    flipping.current = true;
     if (reduced) {
       onTurn();
       flipping.current = false;
@@ -96,8 +109,8 @@ export function useHoldMotion({ onCharged, onTurn }: HoldMotionEvents) {
       transform: [
         { perspective: hold.perspective },
         { rotateY: `${angle}deg` },
-        { scale: 1 - (1 - hold.squeeze) * c },
-        { rotateZ: `${tremble.get() * hold.trembleDeg * c}deg` },
+        { scale: 1 - (1 - squeeze) * c },
+        { rotateZ: `${tremble.get() * trembleDeg * c}deg` },
       ],
     };
   });

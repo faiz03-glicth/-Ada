@@ -21,7 +21,21 @@ export { resolveReduceMotion, useReduceMotion, useSystemReduceMotion } from './h
 export { cssEase, motion, type Curve } from './tokens/motion';
 export { heatmapRevealDelay, type HeatmapRevealStyle } from './motion/cssMotion';
 export { layoutMotion, type Direction } from './motion/layoutMotion';
-export { useHoldMotion, type HoldMotionEvents } from './motion/useHoldMotion';
+export { useHoldMotion, type HoldMotionOptions } from './motion/useHoldMotion';
+export {
+  collapseMs,
+  fallSpanMs,
+  flipCatchMs,
+  flipLandingMs,
+  flipTurnMs,
+  landingMs,
+  rebuildMs,
+  rebuildStartMs,
+  restAtMs,
+  rowReleaseMs,
+  soundedDiagonals,
+  stackSpanMs,
+} from './motion/heatmapRebuild';
 export { useMotion } from './motion/useMotion';
 export { useNavigationMotion, type NavigationMotion } from './motion/useNavigationMotion';
 export { usePressMotion, type PressFeedback } from './motion/usePressMotion';

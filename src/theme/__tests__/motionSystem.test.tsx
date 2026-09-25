@@ -13,7 +13,7 @@ import { renderInScheme, SCHEMES } from '@test/render';
 import { haptics } from '@/shared/lib/haptics';
 import { sounds } from '@/shared/lib/sounds';
 
-import { heatmapReveal, heatmapRevealDelay, heatmapWave } from '../motion/cssMotion';
+import { heatmapReveal, heatmapRevealDelay, heatmapStack } from '../motion/cssMotion';
 import { layoutMotion } from '../motion/layoutMotion';
 import { useMotion } from '../motion/useMotion';
 import { useSelectionMotion } from '../motion/useSelectionMotion';
@@ -229,7 +229,7 @@ describe('press and hold (the login mark)', () => {
     expect(cellsAppear().every((appear) => !appear)).toBe(true);
   });
 
-  it('held long enough: ticks come faster and harder, then it flips and the heatmap waves in', () => {
+  it('held long enough: ticks come faster and harder, then it flips and its blocks stack back in', () => {
     renderInScheme(<LogoMark holdable />, 'dark');
     fireEvent(screen.getByTestId('logo-mark', { includeHiddenElements: true }), 'pressIn');
     act(() => jest.advanceTimersByTime(hold.chargeMs + 50));
@@ -239,17 +239,24 @@ describe('press and hold (the login mark)', () => {
     expect([...strengths].sort((a, b) => a - b)).toEqual(strengths);
     expect(strengths.at(-1)).toBeGreaterThan(0.75);
     expect(success).toHaveBeenCalledTimes(1);
-    // The flip is heard as it starts: one sound, timed to the flip and the wave.
+    // The flip is heard as it starts: one sound, the whoosh and then the blocks' wooden clacks.
     expect(play).toHaveBeenCalledTimes(1);
     expect(play).toHaveBeenCalledWith('logoFlip');
 
+    const impact = jest.spyOn(haptics, 'impact');
+    // Mid-flip, past the edge-on turn: the new face is stacking in, diagonal by diagonal.
     act(() => jest.advanceTimersByTime(hold.flipMs));
     const appear = cellsAppear();
-    // Top-left first, bottom-right last, diagonal by diagonal.
-    expect(appear[0]).toEqual(heatmapWave(0, 0, hold.flipMs / 4));
-    expect(appear[4]).toEqual(heatmapWave(1, 1, hold.flipMs / 4));
-    expect(appear[8]?.animationDelay).toBeGreaterThan(appear[4]?.animationDelay);
-    expect(appear[4]?.animationDelay).toBeGreaterThan(appear[0]?.animationDelay);
+    expect(appear[0]).toEqual(heatmapStack(0, 0, 5));
+    expect(appear[4]).toEqual(heatmapStack(1, 1, 5));
+    expect(appear[8]).toEqual(heatmapStack(2, 2, 5));
+
+    act(() => jest.advanceTimersByTime(600));
+    // A tick on each of the five diagonals' landings, the last one firmer.
+    expect(impact).toHaveBeenCalledTimes(5);
+    expect(impact).toHaveBeenLastCalledWith('medium');
+    // Landed and at rest: animations dropped (nothing replays).
+    expect(cellsAppear().every((cellAppear) => !cellAppear)).toBe(true);
   });
 
   it('letting go early settles back without a flip', () => {
@@ -271,6 +278,8 @@ describe('press and hold (the login mark)', () => {
     fireEvent(screen.getByTestId('logo-mark', { includeHiddenElements: true }), 'pressIn');
     act(() => jest.advanceTimersByTime(hold.chargeMs + 50));
     expect(success).toHaveBeenCalledTimes(1);
+    // Nothing moves, so nothing is narrated: no whoosh, no clacks.
+    expect(play).not.toHaveBeenCalled();
     expect(cellsAppear().every((appear) => !appear)).toBe(true);
   });
 });

@@ -49,7 +49,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: APP_ID,
     adaptiveIcon: {
-      backgroundColor: '#E2F4E8',
+      backgroundColor: '#FCFDFC',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -70,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         resizeMode: 'contain',
         // The light and dark canvas colours, so the splash fades into the first screen without a shift.
         backgroundColor: '#F2F5F1',
-        dark: { backgroundColor: '#0D100E' },
+        dark: { image: './assets/splash-icon-dark.png', backgroundColor: '#0D100E' },
       },
     ],
     'expo-font',

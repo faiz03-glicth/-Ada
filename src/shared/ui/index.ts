@@ -10,6 +10,7 @@ export { ContentSwap } from './ContentSwap';
 export { EmptyState } from './EmptyState';
 export { HeatCell } from './HeatCell';
 export { Heatmap } from './Heatmap';
+export { HoldableHeatmap } from './HoldableHeatmap';
 export { Icon } from './Icon';
 export { IconBadge } from './IconBadge';
 export { IconButton } from './IconButton';

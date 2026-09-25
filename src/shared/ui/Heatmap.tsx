@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatGrid } from '@/features/heatmap/domain/grid';
-import { useMotion } from '@/theme';
+import { useMotion, type HeatmapRevealStyle } from '@/theme';
 
 import { HeatCell } from './HeatCell';
 import { Text } from './Text';
@@ -21,6 +21,12 @@ export interface HeatmapProps {
   dayLabels?: readonly string[];
   /** Plays the motion system's heatmapReveal once, as the heatmap appears. Skipped with Reduce Motion. */
   animateIn?: boolean;
+  /**
+   * A motion for every cell, by position (from the motion system), in place of the entrance: e.g. the
+   * rebuild's collapse and stacking. Cells keep their identity when it changes (never remounted), so one
+   * motion hands over to the next without a gap.
+   */
+  cellMotion?: ((column: number, row: number) => HeatmapRevealStyle | null) | null;
 }
 
 /**
@@ -38,6 +44,7 @@ export const Heatmap = memo(function Heatmap({
   onDayPress,
   dayLabels,
   animateIn = false,
+  cellMotion,
 }: HeatmapProps) {
   const motion = useMotion();
   const decorative = !interactive;
@@ -67,7 +74,13 @@ export const Heatmap = memo(function Heatmap({
               state={cell.state}
               size={cellSize}
               radius={radius}
-              appear={animateIn ? motion.heatmapReveal(columnIndex, rowIndex) : null}
+              appear={
+                cellMotion
+                  ? cellMotion(columnIndex, rowIndex)
+                  : animateIn
+                    ? motion.heatmapReveal(columnIndex, rowIndex)
+                    : null
+              }
               onPress={interactive && onDayPress ? () => onDayPress(cell.key) : undefined}
               accessibilityLabel={cell.label}
             />

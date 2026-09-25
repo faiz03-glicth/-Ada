@@ -87,9 +87,11 @@ export const motion = {
   },
   /**
    * pager: pages side by side (onboarding). A swipe moves them with the finger and the platform snaps
-   * to the nearest page; Continue or Back slides a whole page (`slideMs`, standard curve).
+   * to the nearest page; Continue or Back slides a whole page (`slideMs`, standard curve). A page has
+   * landed once it's within `landWithin` of a page's width of its spot, finger lifted: close enough to
+   * look settled, early enough for its clack to be heard as it settles (the snap's last points crawl).
    */
-  pager: { slideMs: DURATION.emphasis },
+  pager: { slideMs: DURATION.emphasis, landWithin: 0.02 },
   /** settle: something in a fixed frame moving to make room (a button gliding as the one below it goes). */
   settle: { durationMs: DURATION.normal },
   /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */
@@ -105,14 +107,15 @@ export const motion = {
     rowMs: STAGGER.small,
     durationMs: 500,
     fromScale: 0.6,
-    /** The wave variant: diagonal by diagonal, top-left to bottom-right. */
+    /** Waves (the rebuild's stacking): diagonal by diagonal, top-left to bottom-right, this far apart. */
     waveStepMs: STAGGER.list,
   },
   /**
    * hold: press and hold to charge something up (the login mark). Held, it tenses (`squeeze`) and trembles
    * more and more (up to `trembleDeg`, one shiver every `tremblePeriodMs`) while haptic ticks come faster
    * and stronger (a tick every `tickGapMs.from` → `tickGapMs.to`). After `chargeMs` it lets go: it flips
-   * (`flipMs`, edge-on halfway) and a fresh heatmap waves in. Let go early and it simply settles back.
+   * (`flipMs`, edge-on halfway) and its blocks stack back in (heatmapRebuild's drop, clack and tick).
+   * Let go early and it simply settles back.
    */
   hold: {
     chargeMs: 900,
@@ -122,6 +125,31 @@ export const motion = {
     tickGapMs: { from: 160, to: 45 },
     flipMs: 560,
     perspective: 600,
+  },
+  /**
+   * heatmapRebuild: hold the Welcome heatmap and it collapses, then stacks itself back up. Timed to its
+   * sounds (scripts/sounds/build-sounds.py builds them from these same numbers; a test keeps the
+   * two in step):
+   * - the collapse releases one row per impact of the falling sound (`impactsMs`, bottom row first); each
+   *   row drops out of the grid (`fallMs`, `fallDistance`), tumbling a little;
+   * - after `pauseMs` with an empty grid, blocks drop back into place diagonal by diagonal
+   *   (heatmapReveal.waveStepMs apart), each landing at the end of its `stackMs` drop from `stackDistance`
+   *   above, and every other landing (plus the last) is heard as a wooden clack and felt as a tick.
+   * `audioLeadMs`: sound comes out of a phone's speaker a little after it's started, so the pictures and
+   * haptics wait this long to land on the sound. The hold itself tenses less than the logo's (it's wide).
+   * `handoverMs`: each phase's animation keeps holding its last frame this long after the next phase is
+   * due to take over, so the hand-over always happens between two identical frames (never a flash).
+   */
+  heatmapRebuild: {
+    impactsMs: [0, 40, 80, 156, 200, 280, 396],
+    fallMs: 380,
+    fallDistance: 200,
+    pauseMs: 150,
+    stackMs: 260,
+    stackDistance: 16,
+    audioLeadMs: 60,
+    handoverMs: 300,
+    hold: { squeeze: 0.97, trembleDeg: 1.2 },
   },
   /**
    * selection: an item's icon answers the choice: it swells a little when chosen and dips a little when
