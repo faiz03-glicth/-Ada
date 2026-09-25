@@ -15,12 +15,13 @@ const { speed, distance, stagger, heroStagger, pulse } = motion;
 export type HeatRevealRules = readonly CSSKeyframesRule[];
 
 export function heatRevealRules(heat: HeatSteps): HeatRevealRules {
-  const appear = Math.round(heroStagger.appearShare * 100);
+  // Selectors are percentage strings: a bare number would have to be a 0–1 fraction.
+  const appear = `${Math.round(heroStagger.appearShare * 100)}%`;
   return heat.map((color) =>
     css.keyframes({
-      0: { opacity: 0, transform: [{ scale: heroStagger.fromScale }], backgroundColor: heat[0] },
+      '0%': { opacity: 0, transform: [{ scale: heroStagger.fromScale }], backgroundColor: heat[0] },
       [appear]: { opacity: 1, transform: [{ scale: 1 }], backgroundColor: heat[0] },
-      100: { opacity: 1, transform: [{ scale: 1 }], backgroundColor: color },
+      '100%': { opacity: 1, transform: [{ scale: 1 }], backgroundColor: color },
     }),
   );
 }
@@ -60,8 +61,6 @@ const swell = css.keyframes({
   '40%': { transform: [{ scale: 1.1 }] },
   '75%': { transform: [{ scale: 0.98 }] },
   '100%': { transform: [{ scale: 1 }] },
-  from: { transform: [{ scale: 1 }] },
-  to: { transform: [{ scale: 1 }] },
 });
 export const selection = {
   animationName: swell,

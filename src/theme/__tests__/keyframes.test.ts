@@ -1,0 +1,46 @@
+import type { CSSKeyframesRule } from 'react-native-reanimated';
+
+import { buildTheme } from '../buildTheme';
+import { checkInPulse, heatRevealRules, selection, staggerIn } from '../motion/cssMotion';
+
+/*
+ * Jest never hands keyframes to Reanimated's native side, so invalid ones only crash on a phone
+ * ("Invalid keyframe selector"). This runs every keyframe the motion system defines through the same
+ * selector check Reanimated uses natively.
+ */
+const { normalizeKeyframeSelector } =
+  require('react-native-reanimated/src/css/native/normalization/animation/keyframes') as {
+    normalizeKeyframeSelector: (selector: string | number) => number[];
+  };
+
+const rules: [string, CSSKeyframesRule][] = [
+  ...(['light', 'dark'] as const).flatMap((scheme) =>
+    heatRevealRules(buildTheme(scheme, 'meadow', 'classic').heat).map(
+      (rule, level): [string, CSSKeyframesRule] => [`heat reveal (${scheme}, level ${level})`, rule],
+    ),
+  ),
+  ['stagger-in', staggerIn(0).animationName],
+  ['selection swell', selection.animationName],
+  ['check-in pulse', checkInPulse.animationName],
+];
+
+describe.each(rules)('%s keyframes', (_name, rule) => {
+  it('use selectors Reanimated accepts (fractions 0–1 or percentages 0%–100%)', () => {
+    const selectors = Object.keys(rule.cssRules);
+    expect(selectors.length).toBeGreaterThanOrEqual(2);
+    for (const selector of selectors) {
+      expect(() => normalizeKeyframeSelector(selector)).not.toThrow();
+    }
+  });
+
+  it('start and end at their resting state (0% and 100% are both defined)', () => {
+    const offsets = Object.keys(rule.cssRules).flatMap((selector) => normalizeKeyframeSelector(selector));
+    expect(offsets).toContain(0);
+    expect(offsets).toContain(1);
+  });
+});
+
+it('the check itself rejects the selector that crashed on device ("45"), and accepts "45%"', () => {
+  expect(() => normalizeKeyframeSelector('45')).toThrow(/Invalid keyframe selector/);
+  expect(normalizeKeyframeSelector('45%')).toEqual([0.45]);
+});
