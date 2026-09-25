@@ -72,6 +72,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-apple-authentication',
     ['@react-native-google-signin/google-signin', { iosUrlScheme: googleIosUrlScheme() }],
     'react-native-edge-to-edge',
+    [
+      'expo-build-properties',
+      {
+        android: {
+          // Release builds only, so the dev client is unaffected.
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+          // The staging APK is side-loaded onto real phones, which are all arm64.
+          ...(process.env.EAS_BUILD_PROFILE === 'preview' && { buildArchs: ['arm64-v8a'] }),
+        },
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
