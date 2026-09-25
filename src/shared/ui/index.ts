@@ -2,6 +2,7 @@ export { ActivityBadge } from './ActivityBadge';
 export { ActivityGrid } from './ActivityGrid';
 export { AppToaster } from './AppToaster';
 export { Avatar } from './Avatar';
+export { Backdrop } from './Backdrop';
 export { Banner } from './Banner';
 export { Button } from './Button';
 export { Card } from './Card';

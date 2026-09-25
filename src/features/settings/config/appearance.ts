@@ -29,3 +29,8 @@ export function reduceMotionCaption(preference: ReduceMotionPreference, system: 
     ? 'No stretching or bouncing; screens fade instead of sliding.'
     : 'Full motion, even if your phone reduces it.';
 }
+
+export const SOUND_EFFECTS_COPY = {
+  title: 'Sound effects',
+  description: 'Short sounds for moments like flipping the logo.',
+};

@@ -13,7 +13,6 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { useShallow } from 'zustand/react/shallow';
 
 import { buildTheme } from '../buildTheme';
-import { resolveVisualStyle, useGlassSupport } from '../hooks/useGlassSupport';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useResolvedScheme } from '../hooks/useResolvedScheme';
 import { useThemePreferencesStore } from '../state/themePreferencesStore';
@@ -64,13 +63,9 @@ export function ThemeRuntimeBridge() {
     useShallow((s) => ({ preference: s.preference, paletteId: s.paletteId, style: s.style })),
   );
   const scheme = useResolvedScheme(preference);
-  const renderedStyle = resolveVisualStyle(style, useGlassSupport());
   const reduced = useReduceMotion();
 
-  const target = useMemo<Look>(
-    () => ({ scheme, paletteId, style: renderedStyle }),
-    [scheme, paletteId, renderedStyle],
-  );
+  const target = useMemo<Look>(() => ({ scheme, paletteId, style }), [scheme, paletteId, style]);
   // What is on screen (null until first applied) and what was asked for last: plain refs, since applying
   // a look is imperative and must never wait for a React render.
   const shown = useRef<Look | null>(null);

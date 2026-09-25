@@ -107,6 +107,8 @@ const styles = StyleSheet.create((theme) => ({
       quiet: 'transparent',
       danger: theme.colors.dangerSoft,
     }[variant],
+    // Glass: the primary button is lit from inside and glows green onto the backdrop.
+    boxShadow: variant === 'primary' ? theme.glass?.accentShadow : undefined,
   }),
   content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm },
 }));

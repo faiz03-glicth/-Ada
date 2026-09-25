@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Card, NavBar, Screen, SegmentedControl, Text } from '@/shared/ui';
+import { Card, ListRow, NavBar, Screen, SegmentedControl, Text } from '@/shared/ui';
 
 import { useAppearanceSettingsViewModel } from './useAppearanceSettingsViewModel';
 
@@ -45,6 +45,24 @@ export function AppearanceSettingsScreen() {
           <Text variant="footnote" tone="secondary">
             {vm.reduceMotionCaption}
           </Text>
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="caption" tone="secondary" weight="semibold" style={styles.label}>
+          SOUNDS
+        </Text>
+        <Card tight>
+          <ListRow
+            testID="appearance-sounds"
+            icon="volume"
+            iconColor="blue"
+            title={vm.soundEffectsCopy.title}
+            description={vm.soundEffectsCopy.description}
+            trailing="toggle"
+            toggleValue={vm.soundEffects}
+            onToggle={vm.onSoundEffectsChange}
+          />
         </Card>
       </View>
     </Screen>

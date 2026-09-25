@@ -16,7 +16,6 @@ export { HEAT_PALETTE_IDS } from './tokens/heatPalettes';
 export { BRAND_GREEN } from './tokens/brand';
 export { resolveScheme, useResolvedScheme } from './hooks/useResolvedScheme';
 export { resolveReduceMotion, useReduceMotion, useSystemReduceMotion } from './hooks/useReduceMotion';
-export { isGlassSupported, resolveVisualStyle, useGlassSupport } from './hooks/useGlassSupport';
 // The motion system: one source of timing (tokens), presets by meaning, Reduce Motion resolved once.
 // Components ask for a meaning (press, selection, heatmapReveal, push…); none writes its own animation.
 export { cssEase, motion, type Curve } from './tokens/motion';

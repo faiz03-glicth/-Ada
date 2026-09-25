@@ -11,6 +11,7 @@ import { SelectableTile } from '@/shared/ui/SelectableTile';
 import { renderInScheme, SCHEMES } from '@test/render';
 
 import { haptics } from '@/shared/lib/haptics';
+import { sounds } from '@/shared/lib/sounds';
 
 import { heatmapReveal, heatmapRevealDelay, heatmapWave } from '../motion/cssMotion';
 import { layoutMotion } from '../motion/layoutMotion';
@@ -201,12 +202,14 @@ describe('press and hold (the login mark)', () => {
   const cellsAppear = () => screen.UNSAFE_getAllByType(HeatCell.type).map(({ props }) => props.appear);
   let charge: jest.SpyInstance;
   let success: jest.SpyInstance;
+  let play: jest.SpyInstance;
 
   beforeEach(() => {
     jest.useFakeTimers();
     // Spied before render: the mark hands these to its hold as it renders.
     charge = jest.spyOn(haptics, 'charge');
     success = jest.spyOn(haptics, 'success');
+    play = jest.spyOn(sounds, 'play');
   });
   afterEach(() => {
     jest.useRealTimers();
@@ -236,6 +239,9 @@ describe('press and hold (the login mark)', () => {
     expect([...strengths].sort((a, b) => a - b)).toEqual(strengths);
     expect(strengths.at(-1)).toBeGreaterThan(0.75);
     expect(success).toHaveBeenCalledTimes(1);
+    // The flip is heard as it starts: one sound, timed to the flip and the wave.
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenCalledWith('logoFlip');
 
     act(() => jest.advanceTimersByTime(hold.flipMs));
     const appear = cellsAppear();
@@ -256,6 +262,7 @@ describe('press and hold (the login mark)', () => {
     act(() => jest.advanceTimersByTime(hold.chargeMs * 2));
     expect(charge.mock.calls.length).toBe(ticks);
     expect(success).not.toHaveBeenCalled();
+    expect(play).not.toHaveBeenCalled();
   });
 
   it('with Reduce Motion the hold still completes and the mark is redrawn, without moving', () => {

@@ -4,6 +4,8 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { Backdrop } from './Backdrop';
+
 export interface ScreenProps {
   children: ReactNode;
   /** Scrolls, and keeps the focused field above the keyboard. */
@@ -31,6 +33,7 @@ export function Screen({
   const content = [styles.content(inset, withTabBar), contentStyle];
   return (
     <SafeAreaView edges={edges} style={styles.root} testID={testID}>
+      <Backdrop />
       {scroll ? (
         <KeyboardAwareScrollView
           bottomOffset={24}

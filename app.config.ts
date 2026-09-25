@@ -3,6 +3,14 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 const BUNDLE_ID = 'com.faiz.streak';
 
 /**
+ * `APP_VARIANT=local` makes a separate app for builds made on this computer (`npx expo run:android`):
+ * "Streak Local", with its own ID and link scheme, so it installs NEXT TO the EAS-built "Streak" instead
+ * of clashing with it (the two are signed with different keys). EAS builds never set it.
+ */
+const IS_LOCAL = process.env.APP_VARIANT === 'local';
+const APP_ID = IS_LOCAL ? `${BUNDLE_ID}.local` : BUNDLE_ID;
+
+/**
  * Google Sign-In on iOS needs the *reversed* iOS client ID as a URL scheme:
  * `123-abc.apps.googleusercontent.com` → `com.googleusercontent.apps.123-abc`.
  */
@@ -20,7 +28,7 @@ function googleIosUrlScheme(): string {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Streak',
+  name: IS_LOCAL ? 'Streak Local' : 'Streak',
   slug: 'streak',
   // EAS project (expo.dev/accounts/faiz-glitch/projects/streak). Identifiers only, not secrets.
   owner: 'faiz-glitch',
@@ -28,18 +36,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.extra,
     eas: { projectId: '384ea1bd-653a-40b0-b8a2-8d8cb7d8c492' },
   },
-  scheme: 'streak',
+  scheme: IS_LOCAL ? 'streak-local' : 'streak',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   ios: {
-    bundleIdentifier: BUNDLE_ID,
+    bundleIdentifier: APP_ID,
     supportsTablet: true,
     usesAppleSignIn: true,
   },
   android: {
-    package: BUNDLE_ID,
+    package: APP_ID,
     adaptiveIcon: {
       backgroundColor: '#E2F4E8',
       foregroundImage: './assets/android-icon-foreground.png',

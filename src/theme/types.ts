@@ -83,7 +83,15 @@ export interface Elevation {
 }
 
 export interface GlassMaterial {
-  card: { background: string; edge: string };
+  /**
+   * The canvas behind every screen: soft glows of green and blue over `canvasBase`, as CSS
+   * `radial-gradient` layers (React Native draws them natively on iOS and Android).
+   */
+  backdrop: string;
+  /** `shadow`: a lit top edge and a soft drop, so a translucent card reads as a pane of glass. */
+  card: { background: string; edge: string; shadow: string };
+  /** The primary button's inner light and green glow. */
+  accentShadow: string;
   strong: string;
   tint: string;
   tabBar: string;

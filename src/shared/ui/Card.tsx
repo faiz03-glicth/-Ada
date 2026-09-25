@@ -39,7 +39,9 @@ const styles = StyleSheet.create((theme) => ({
         ? theme.colors.accentSoft
         : (theme.glass?.card.background ?? theme.colors.surface),
     borderColor: tone === 'accentSoft' ? 'transparent' : (theme.glass?.card.edge ?? theme.colors.border),
-    boxShadow: theme.elevation.card ?? undefined,
+    // Glass: a lit edge and a soft drop make the translucent card read as a pane over the backdrop.
+    boxShadow:
+      (tone === 'default' ? theme.glass?.card.shadow : undefined) ?? theme.elevation.card ?? undefined,
   }),
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.border },
 }));

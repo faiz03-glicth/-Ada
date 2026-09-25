@@ -19,7 +19,9 @@ jest.mock('react-native-edge-to-edge', () => ({
 }));
 
 const prefs = () => useThemePreferencesStore.getState();
-const canvas = (scheme: 'light' | 'dark') => buildTheme(scheme, 'meadow', 'classic').colors.canvas;
+// The canvas as the bridge renders it: the stored palette and style (Liquid Glass by default).
+const canvas = (scheme: 'light' | 'dark') =>
+  buildTheme(scheme, prefs().paletteId, prefs().style).colors.canvas;
 // The veil is hidden from screen readers on purpose, so the query has to include hidden elements.
 const veil = () => getAnimatedStyle(screen.getByTestId('theme-veil', { includeHiddenElements: true }));
 

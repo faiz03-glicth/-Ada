@@ -22,7 +22,7 @@ interface ThemePreferencesState extends ThemePreferences {
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   preference: 'system',
   paletteId: 'meadow',
-  // The approved prototype defaults to Liquid Glass; it only takes effect where the platform supports it.
+  // The approved prototype defaults to Liquid Glass (the app's own material, on every platform).
   style: 'glass',
   reduceMotion: 'system',
 };

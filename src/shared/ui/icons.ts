@@ -22,6 +22,7 @@ import {
   Sparkles,
   Upload,
   User,
+  Volume2,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -50,6 +51,7 @@ export const ICONS = {
   sparkles: Sparkles,
   upload: Upload,
   user: User,
+  volume: Volume2,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

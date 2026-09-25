@@ -4,6 +4,7 @@ import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { haptics } from '@/shared/lib/haptics';
+import { sounds } from '@/shared/lib/sounds';
 import { motion, useHoldMotion, useMotion, type HeatLevel } from '@/theme';
 
 import { HeatCell } from './HeatCell';
@@ -31,11 +32,19 @@ export function LogoMark({ size = 76, animateIn = false, holdable = false }: Log
   const [generation, setGeneration] = useState(0);
   const stopRamp = useRef<(() => void) | null>(null);
   const hold = useHoldMotion({
-    onCharged: haptics.success,
+    // The release you feel and hear: a success tap, and the flip's sound (timed to the flip and the wave).
+    onCharged: () => {
+      haptics.success();
+      sounds.play('logoFlip');
+    },
     onTurn: () => setGeneration((current) => current + 1),
   });
 
   useEffect(() => () => stopRamp.current?.(), []);
+  // Loaded before the first hold, so the sound starts exactly with the flip.
+  useEffect(() => {
+    if (holdable) sounds.preload('logoFlip');
+  }, [holdable]);
 
   const padding = Math.round(size * (12 / 76));
   const gap = Math.max(2, Math.round(size * (4 / 76)));

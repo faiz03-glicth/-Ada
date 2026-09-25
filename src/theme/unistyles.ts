@@ -2,7 +2,6 @@ import { Appearance } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { buildTheme } from './buildTheme';
-import { isGlassSupported, resolveVisualStyle } from './hooks/useGlassSupport';
 import { resolveScheme } from './hooks/useResolvedScheme';
 import { useThemePreferencesStore } from './state/themePreferencesStore';
 import type { Theme } from './types';
@@ -10,11 +9,10 @@ import type { Theme } from './types';
 // Wiring only: registers the two scheme themes built from the persisted (synchronously hydrated) preferences.
 // ThemeRuntimeBridge keeps them current afterwards.
 const initial = useThemePreferencesStore.getState();
-const initialStyle = resolveVisualStyle(initial.style, isGlassSupported());
 
 const appThemes = {
-  light: buildTheme('light', initial.paletteId, initialStyle),
-  dark: buildTheme('dark', initial.paletteId, initialStyle),
+  light: buildTheme('light', initial.paletteId, initial.style),
+  dark: buildTheme('dark', initial.paletteId, initial.style),
 };
 
 const breakpoints = { xs: 0, md: 600 } as const;
