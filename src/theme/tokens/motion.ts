@@ -27,6 +27,9 @@ const curves = <T>(make: (...points: Points) => T) => ({
   exit: make(...CURVES.exit),
 });
 
+/** Gaps between staggered items (ms): tight (down a column), medium (across columns), list (list rows). */
+const STAGGER = { small: 15, medium: 40, list: 70 } as const;
+
 /**
  * One shared spring for presses, sheets, tabs and screen changes.
  * `ReduceMotion.System` makes Reanimated jump straight to the end value when Reduce Motion is on. The
@@ -44,6 +47,9 @@ export const motion = {
    * normal for a control changing state (selection, active tab), emphasized for whole-surface changes.
    */
   speed: { fast: 140, normal: 220, emphasized: 320 },
+  /** How far things travel (pt): a small nudge, a medium drift, a screen-level arrival. */
+  distance: { small: 6, medium: 28, screen: 40 },
+  stagger: STAGGER,
   /** The curves, for Reanimated timing animations (`withTiming(…, { easing })`). */
   ease: curves(Easing.bezier),
   /**
@@ -52,12 +58,20 @@ export const motion = {
    * curve). `hold` gives the native theme swap two frames to land before the veil lifts.
    */
   themeFade: { in: 110, hold: 34, out: 190 },
-  duration: { fast: 120, base: 240, slow: 500 },
   press: { scale: 0.96, subtleScale: 0.985 },
-  /** Onboarding hero: cells grow from 0.3 and fade in, staggered by column then row. */
-  heroStagger: { columnMs: 40, rowMs: 15, durationMs: 500, fromScale: 0.3 },
+  /**
+   * The heatmap reveal: each day appears as an empty cell (fading in from 55%, a small scale-in), then its
+   * colour fills in; `appearShare` is the part of `durationMs` spent appearing. When each cell starts is
+   * heroCellDelay's job, stepping by columns and rows.
+   */
+  heroStagger: {
+    columnMs: STAGGER.medium,
+    rowMs: STAGGER.small,
+    durationMs: 500,
+    fromScale: 0.55,
+    appearShare: 0.45,
+  },
   pulse: { scale: 1.45, durationMs: 600, repeats: 2 },
-  crossFadeMs: 220,
   /**
    * Screen transitions: pushed screens slide in from the right on both platforms, tabs cross-fade
    * (calm, no sideways jump), and moving between the onboarding/login flow and the app cross-fades.

@@ -1,10 +1,10 @@
 import { View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { AuthIntent } from '@/features/auth/domain/types';
 import { Banner, Button, NavBar, Screen } from '@/shared/ui';
-import { motion } from '@/theme';
+import { layoutMotion } from '@/theme';
 
 import { BenefitsCard } from './components/BenefitsCard';
 import { CodeStep } from './components/CodeStep';
@@ -40,8 +40,8 @@ export function LoginScreen({ intent }: { intent: AuthIntent }) {
 
       <Animated.View
         key={vm.step}
-        entering={FadeIn.duration(motion.crossFadeMs)}
-        exiting={FadeOut.duration(motion.duration.fast)}
+        entering={layoutMotion.fade}
+        exiting={layoutMotion.fadeOut}
         style={styles.step}
       >
         <LoginHeader title={vm.heading.title} subtitle={vm.heading.subtitle} />

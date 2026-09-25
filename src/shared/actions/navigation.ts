@@ -56,6 +56,14 @@ export function openOnboarding(step: OnboardingStep, { replace = false }: FlowOp
   else router.push(routes.onboarding(step));
 }
 
+/**
+ * Moves between onboarding steps INSIDE the current onboarding screen: the frame (header, progress dots,
+ * button) stays put and only the step's content transitions, as in the prototype.
+ */
+export function showOnboardingStep(step: OnboardingStep): void {
+  router.setParams({ step: String(step) });
+}
+
 export function openLogin(intent: AuthIntent, { replace = false }: FlowOptions = {}): void {
   if (replace) router.replace(routes.login(intent));
   else router.push(routes.login(intent));

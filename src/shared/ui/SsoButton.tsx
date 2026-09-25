@@ -1,6 +1,9 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { ActivityIndicator, Platform, Text as RNText, View } from 'react-native';
+import { ActivityIndicator, Platform, Text as RNText } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { layoutMotion, useStateTransition } from '@/theme';
 
 import { GoogleLogo } from './GoogleLogo';
 import { PressableScale } from './PressableScale';
@@ -35,10 +38,15 @@ export function SsoButton({
 }: SsoButtonProps) {
   const { theme } = useUnistyles();
   const colors = provider === 'apple' ? theme.brand.apple : theme.brand.google;
+  // Another provider is connecting: fade to the disabled look rather than snapping.
+  const dim = useStateTransition('opacity');
+  const opacity = { opacity: disabled ? 0.45 : 1 };
 
   if (busy) {
     return (
-      <View
+      <Animated.View
+        key="busy"
+        entering={layoutMotion.swap}
         style={styles.pill(colors.background, provider === 'google' ? theme.brand.google.border : null)}
         accessible
         accessibilityRole="button"
@@ -47,7 +55,7 @@ export function SsoButton({
       >
         <ActivityIndicator size="small" color={colors.foreground} />
         <RNText style={styles.label(provider, colors.foreground)}>{BUSY_LABEL}</RNText>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -55,40 +63,44 @@ export function SsoButton({
     // Sign in with Apple is iOS-only; the native button doesn't exist elsewhere.
     if (Platform.OS !== 'ios') return null;
     return (
-      <View
-        testID="apple-sso"
-        style={disabled && styles.disabled}
-        pointerEvents={disabled ? 'none' : 'auto'}
-        accessibilityState={{ disabled }}
-      >
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          buttonStyle={
-            theme.scheme === 'dark'
-              ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-              : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-          }
-          cornerRadius={HEIGHT / 2}
-          style={styles.native}
-          onPress={onPress}
-        />
-      </View>
+      <Animated.View key="idle" entering={layoutMotion.swap}>
+        <Animated.View
+          testID="apple-sso"
+          style={[opacity, dim]}
+          pointerEvents={disabled ? 'none' : 'auto'}
+          accessibilityState={{ disabled }}
+        >
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={
+              theme.scheme === 'dark'
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+            }
+            cornerRadius={HEIGHT / 2}
+            style={styles.native}
+            onPress={onPress}
+          />
+        </Animated.View>
+      </Animated.View>
     );
   }
 
   return (
-    <PressableScale
-      onPress={onPress}
-      disabled={disabled}
-      scaleTo={0.97}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      style={[styles.pill(colors.background, theme.brand.google.border), disabled && styles.disabled]}
-    >
-      <GoogleLogo size={20} />
-      <RNText style={styles.label('google', colors.foreground)}>{label}</RNText>
-    </PressableScale>
+    <Animated.View key="idle" entering={layoutMotion.swap}>
+      <PressableScale
+        onPress={onPress}
+        disabled={disabled}
+        scaleTo={0.97}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled }}
+        style={[styles.pill(colors.background, theme.brand.google.border), opacity, dim]}
+      >
+        <GoogleLogo size={20} />
+        <RNText style={styles.label('google', colors.foreground)}>{label}</RNText>
+      </PressableScale>
+    </Animated.View>
   );
 }
 
@@ -112,5 +124,4 @@ const styles = StyleSheet.create((theme) => ({
     fontFamily: provider === 'google' ? theme.fonts.googleLabel : undefined,
     fontWeight: provider === 'apple' ? ('600' as const) : undefined,
   }),
-  disabled: { opacity: 0.45 },
 }));

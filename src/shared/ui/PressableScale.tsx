@@ -46,7 +46,7 @@ export function PressableScale({
 
   const handlePressIn = (event: GestureResponderEvent) => {
     if (!reducedMotion) {
-      pressed.set(isLiquid ? withSpring(1, liquid.hold) : withTiming(1, motion.timing(motion.duration.fast)));
+      pressed.set(isLiquid ? withSpring(1, liquid.hold) : withTiming(1, motion.timing(motion.speed.fast)));
     }
     onPressIn?.(event);
   };

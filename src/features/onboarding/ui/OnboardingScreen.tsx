@@ -1,14 +1,21 @@
 import { View } from 'react-native';
+import Animated, { LayoutAnimationConfig } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { OnboardingStep } from '@/shared/actions';
 import { Button, IntensityGuide, NavBar, PageDots, Screen } from '@/shared/ui';
+import { layoutMotion } from '@/theme';
 
 import { SetupStep } from './components/SetupStep';
 import { StepHeading } from './components/StepHeading';
 import { WelcomeStep } from './components/WelcomeStep';
 import { useOnboardingViewModel } from './useOnboardingViewModel';
 
+/**
+ * One frame for all three steps: the header, progress dots and primary button stay put, and only the
+ * step's own content transitions (drifting in the direction of travel). The first render doesn't animate
+ * its content: the screen itself is already arriving.
+ */
 export function OnboardingScreen({ step }: { step: OnboardingStep }) {
   const vm = useOnboardingViewModel(step);
 
@@ -30,25 +37,34 @@ export function OnboardingScreen({ step }: { step: OnboardingStep }) {
         }
       />
 
-      {vm.copy.id === 'welcome' && (
-        <WelcomeStep grid={vm.heroGrid} title={vm.copy.title} body={vm.copy.body} />
-      )}
-      {vm.copy.id === 'intensity' && (
-        <>
-          <StepHeading title={vm.copy.title} body={vm.copy.body} />
-          <IntensityGuide layout="list" cellSize={30} />
-        </>
-      )}
-      {vm.copy.id === 'setup' && (
-        <SetupStep
-          title={vm.copy.title}
-          body={vm.copy.body}
-          activities={vm.activities}
-          selectedIds={vm.selectedActivityIds}
-          onToggleActivity={vm.onToggleActivity}
-          reminder={{ ...vm.reminderCopy, enabled: vm.reminderEnabled, onToggle: vm.onToggleReminder }}
-        />
-      )}
+      <LayoutAnimationConfig skipEntering>
+        <Animated.View
+          key={vm.step}
+          entering={layoutMotion.push[vm.direction]}
+          exiting={layoutMotion.fadeOut}
+          style={styles.step}
+        >
+          {vm.copy.id === 'welcome' && (
+            <WelcomeStep grid={vm.heroGrid} title={vm.copy.title} body={vm.copy.body} />
+          )}
+          {vm.copy.id === 'intensity' && (
+            <>
+              <StepHeading title={vm.copy.title} body={vm.copy.body} />
+              <IntensityGuide layout="list" cellSize={30} animateIn />
+            </>
+          )}
+          {vm.copy.id === 'setup' && (
+            <SetupStep
+              title={vm.copy.title}
+              body={vm.copy.body}
+              activities={vm.activities}
+              selectedIds={vm.selectedActivityIds}
+              onToggleActivity={vm.onToggleActivity}
+              reminder={{ ...vm.reminderCopy, enabled: vm.reminderEnabled, onToggle: vm.onToggleReminder }}
+            />
+          )}
+        </Animated.View>
+      </LayoutAnimationConfig>
 
       <View style={styles.spacer} />
       <PageDots count={vm.stepCount} index={vm.step} />
@@ -73,5 +89,7 @@ export function OnboardingScreen({ step }: { step: OnboardingStep }) {
 
 const styles = StyleSheet.create((theme) => ({
   content: { gap: theme.spacing.xl, paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xxl },
+  // Same rhythm inside the step as the screen uses between its sections.
+  step: { gap: theme.spacing.xl },
   spacer: { flexGrow: 1, minHeight: theme.spacing.sm },
 }));

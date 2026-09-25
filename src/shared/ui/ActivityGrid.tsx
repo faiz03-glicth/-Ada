@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Activity } from '@/features/activities/domain/Activity';
-import { useStateTransition } from '@/theme';
+import { useMotion, useStateTransition } from '@/theme';
 
 import { ActivityBadge } from './ActivityBadge';
 import { Icon } from './Icon';
@@ -41,6 +43,9 @@ export function ActivityGrid({
 }: ActivityGridProps) {
   const { theme } = useUnistyles();
   const select = useStateTransition(['backgroundColor', 'borderColor'], 'normal');
+  const motion = useMotion();
+  // The tile the person last tapped: only it swells, so pre-selected tiles stay still when the grid appears.
+  const [tapped, setTapped] = useState<string | null>(null);
   const tiles: Tile[] = [
     ...activities.map((activity): Tile => ({ kind: 'activity', activity })),
     ...(showAdd && onAddPress ? [{ kind: 'add' } as const] : []),
@@ -74,7 +79,10 @@ export function ActivityGrid({
               <PressableScale
                 key={activity.id}
                 testID={`activity-${activity.id}`}
-                onPress={() => onToggle(activity.id)}
+                onPress={() => {
+                  setTapped(activity.id);
+                  onToggle(activity.id);
+                }}
                 accessibilityRole={selection === 'multi' ? 'checkbox' : 'radio'}
                 accessibilityLabel={activity.name}
                 accessibilityState={selection === 'multi' ? { checked: selected } : { selected }}
@@ -89,7 +97,9 @@ export function ActivityGrid({
                   select,
                 ]}
               >
-                <ActivityBadge activity={activity} size={38} />
+                <Animated.View style={motion.selection(selected && tapped === activity.id)}>
+                  <ActivityBadge activity={activity} size={38} />
+                </Animated.View>
                 <Text variant="footnote" weight="medium" numberOfLines={1}>
                   {activity.name}
                 </Text>

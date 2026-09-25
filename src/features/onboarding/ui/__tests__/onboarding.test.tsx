@@ -1,8 +1,9 @@
 import { act, fireEvent, renderHook, screen, waitFor } from '@testing-library/react-native';
+import { BackHandler } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { goBack, openLogin, openOnboarding } from '@/shared/actions';
+import { goBack, openLogin, openOnboarding, showOnboardingStep } from '@/shared/actions';
 import { createWrapper, renderWithApp } from '@test/providers';
 import { SCHEMES } from '@test/render';
 
@@ -25,16 +26,42 @@ describe('useOnboardingViewModel', () => {
     welcome.onHaveAccount();
     expect(jest.mocked(openLogin).mock.calls).toEqual([['new'], ['existing']]);
 
-    const intensity = renderHook(() => useOnboardingViewModel(1), { wrapper: Wrapper }).result.current;
-    intensity.onPrimary();
-    expect(openOnboarding).toHaveBeenCalledWith(2);
-    intensity.onBack();
+    // Intensity → Setup changes step inside the same screen (the frame stays put).
+    const intensity = renderHook(() => useOnboardingViewModel(1), { wrapper: Wrapper });
+    act(() => intensity.result.current.onPrimary());
+    expect(showOnboardingStep).toHaveBeenCalledWith(2);
+    expect(intensity.result.current.direction).toBe('forward');
+    intensity.result.current.onBack();
     expect(goBack).toHaveBeenCalledWith(expect.any(Function));
 
     // With nothing to pop, Back replaces with the previous step.
     const fallback = jest.mocked(goBack).mock.calls[0]?.[0] as () => void;
     fallback();
     expect(openOnboarding).toHaveBeenLastCalledWith(0, { replace: true });
+  });
+
+  it('Setup goes back to Intensity inside the screen, on screen and with Android back', () => {
+    const handlers: Parameters<typeof BackHandler.addEventListener>[1][] = [];
+    jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+      handlers.push(handler);
+      return { remove: jest.fn() };
+    });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useOnboardingViewModel(2), { wrapper: Wrapper });
+
+    act(() => result.current.onBack());
+    expect(showOnboardingStep).toHaveBeenLastCalledWith(1);
+    expect(result.current.direction).toBe('back');
+    expect(goBack).not.toHaveBeenCalled();
+
+    jest.mocked(showOnboardingStep).mockClear();
+    let handled: boolean | null | undefined;
+    act(() => {
+      handled = handlers.at(-1)?.({ type: 'hardwareBackPress', timeStamp: 0 });
+    });
+    expect(handled).toBe(true);
+    expect(showOnboardingStep).toHaveBeenCalledWith(1);
+    jest.restoreAllMocks();
   });
 
   it('toggles activities and the reminder in the persisted draft', () => {
@@ -84,7 +111,7 @@ describe.each(SCHEMES)('OnboardingScreen in %s', (scheme) => {
     renderWithApp(<OnboardingScreen step={1} />, { scheme });
     expect(screen.getByLabelText('Peak: 6+ check-ins')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
-    expect(openOnboarding).toHaveBeenCalledWith(2);
+    expect(showOnboardingStep).toHaveBeenCalledWith(2);
     fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     expect(goBack).toHaveBeenCalled();
   });

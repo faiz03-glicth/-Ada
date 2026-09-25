@@ -1,65 +1,33 @@
 import { memo } from 'react';
 import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { css, cubicBezier } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatCellState } from '@/features/heatmap/domain/grid';
-import { motion, useReduceMotion, type HeatLevel } from '@/theme';
+import { useMotion, type HeatLevel, type HeatRevealStyle } from '@/theme';
 
 export interface HeatCellProps {
   level: HeatLevel;
   size: number;
   radius?: number;
   state?: HeatCellState;
-  /** Plays the "just checked in" pulse (skipped with Reduce Motion). */
+  /** Plays the "just checked in" pulse (the motion system skips it with Reduce Motion). */
   pulse?: boolean;
   /**
-   * Grow-and-fade entrance starting after this many ms. The caller decides whether to animate at all
-   * (Heatmap leaves it out with Reduce Motion), so a grid of cells doesn't each subscribe to the setting.
+   * This cell's part of the heatmap reveal, from the motion system (Heatmap provides it, already
+   * resolved against Reduce Motion, so a grid of cells doesn't each subscribe to the setting).
    */
-  appearDelayMs?: number;
+  appear?: HeatRevealStyle | null;
+  /** Hairline outline so a very pale swatch (level 0) still reads as a cell on a light card. */
+  outlined?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
 }
 
-const { durationMs, fromScale } = motion.heroStagger;
-
-/*
- * Declarative Reanimated CSS animations: they run natively from the style alone, so an animated cell
- * costs no hooks, shared values or worklets. That keeps a 98-cell hero cheap to mount.
- */
-// Easing.inOut(Easing.quad) as a cubic-bezier: the curve these animations have always used.
-const easeInOutQuad = cubicBezier(0.455, 0.03, 0.515, 0.955);
-
-const appear = css.keyframes({
-  from: { opacity: 0, transform: [{ scale: fromScale }] },
-  to: { opacity: 1, transform: [{ scale: 1 }] },
-});
-
-const PULSE = {
-  animationName: css.keyframes({
-    '0%': { transform: [{ scale: 1 }] },
-    '50%': { transform: [{ scale: motion.pulse.scale }] },
-    '100%': { transform: [{ scale: 1 }] },
-  }),
-  animationDuration: motion.pulse.durationMs,
-  animationIterationCount: motion.pulse.repeats,
-  animationTimingFunction: easeInOutQuad,
-} as const;
-
-/** 'backwards': the cell holds the first keyframe (hidden, small) while it waits for its turn. */
-const appearAnimation = (delayMs: number) =>
-  ({
-    animationName: appear,
-    animationDuration: durationMs,
-    animationDelay: delayMs,
-    animationTimingFunction: easeInOutQuad,
-    animationFillMode: 'backwards',
-  }) as const;
-
+/** Only cells that pulse subscribe to the motion system. */
 function PulsingCell({ style }: { style: StyleProp<ViewStyle> }) {
-  const reducedMotion = useReduceMotion();
-  return <Animated.View style={[style, reducedMotion ? null : PULSE]} />;
+  const { pulse } = useMotion();
+  return <Animated.View style={[style, pulse(true)]} />;
 }
 
 /** One day on the heatmap. Knows how a level looks, not which counts produce it. */
@@ -69,19 +37,22 @@ export const HeatCell = memo(function HeatCell({
   radius,
   state = 'default',
   pulse = false,
-  appearDelayMs,
+  appear,
+  outlined = false,
   onPress,
   accessibilityLabel,
 }: HeatCellProps) {
-  const style = styles.cell(level, size, radius ?? Math.max(2, Math.round(size / 3.5)), state);
-  const cell =
-    appearDelayMs !== undefined ? (
-      <Animated.View style={[style, appearAnimation(appearDelayMs)]} />
-    ) : pulse ? (
-      <PulsingCell style={style} />
-    ) : (
-      <View style={style} />
-    );
+  const style = [
+    styles.cell(level, size, radius ?? Math.max(2, Math.round(size / 3.5)), state),
+    outlined && styles.outline,
+  ];
+  const cell = appear ? (
+    <Animated.View style={[style, appear]} />
+  ) : pulse ? (
+    <PulsingCell style={style} />
+  ) : (
+    <View style={style} />
+  );
 
   if (!onPress) return cell;
   return (
@@ -108,4 +79,5 @@ const styles = StyleSheet.create((theme) => ({
     outlineOffset: 1.5,
     outlineColor: state === 'selected' ? theme.colors.accent : theme.colors.text,
   }),
+  outline: { borderWidth: 1, borderColor: theme.colors.border },
 }));

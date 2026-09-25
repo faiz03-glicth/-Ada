@@ -1,11 +1,12 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { HeatGrid } from '@/features/heatmap/domain/grid';
-import { motion, useReduceMotion } from '@/theme';
+import { heatRevealRules, useMotion } from '@/theme';
 
 import { HeatCell } from './HeatCell';
+import { heroCellDelay } from './heroStagger';
 import { Text } from './Text';
 
 export interface HeatmapProps {
@@ -19,15 +20,13 @@ export interface HeatmapProps {
   onDayPress?: (key: string) => void;
   /** Seven pre-formatted row labels (e.g. M, '', W, …). */
   dayLabels?: readonly string[];
-  /** Staggered grow-in: col × 40ms + row × 15ms. Skipped with Reduce Motion. */
+  /** The motion system's heatmap reveal, timed by heroCellDelay. Skipped with Reduce Motion. */
   animateIn?: boolean;
 }
 
-const { columnMs, rowMs } = motion.heroStagger;
-
 /**
  * Weeks-mode heatmap (columns of up to 7 days). Months mode and month labels arrive with Phase 2.
- * The entrance is a native CSS animation per cell (no per-cell hooks), decided once here.
+ * The reveal is a native CSS animation per cell (no per-cell hooks), resolved once here.
  * Non-interactive heatmaps are decorative and hidden from screen readers.
  */
 export const Heatmap = memo(function Heatmap({
@@ -40,8 +39,11 @@ export const Heatmap = memo(function Heatmap({
   dayLabels,
   animateIn = false,
 }: HeatmapProps) {
-  const reducedMotion = useReduceMotion();
-  const animate = animateIn && !reducedMotion;
+  const { theme } = useUnistyles();
+  const motionSystem = useMotion();
+  // The reveal's colours are taken once, at mount: a theme change mid-reveal must not restart it
+  // (the cells' own colours still follow the theme natively).
+  const [rules] = useState(() => (animateIn ? heatRevealRules(theme.heat) : null));
   const decorative = !interactive;
 
   return (
@@ -69,7 +71,9 @@ export const Heatmap = memo(function Heatmap({
               state={cell.state}
               size={cellSize}
               radius={radius}
-              appearDelayMs={animate ? columnIndex * columnMs + rowIndex * rowMs : undefined}
+              appear={
+                rules && motionSystem.heatReveal(rules, cell.level, heroCellDelay(columnIndex, rowIndex))
+              }
               onPress={interactive && onDayPress ? () => onDayPress(cell.key) : undefined}
               accessibilityLabel={cell.label}
             />

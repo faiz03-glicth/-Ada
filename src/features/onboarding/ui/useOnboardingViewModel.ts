@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BackHandler } from 'react-native';
 
 import { SEED_ACTIVITIES } from '@/features/activities/config/seedActivities';
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { goBack, openLogin, openOnboarding, type OnboardingStep } from '@/shared/actions';
+import { goBack, openLogin, openOnboarding, showOnboardingStep, type OnboardingStep } from '@/shared/actions';
 import { useSessionActions } from '@/shared/actions/session';
 import { haptics } from '@/shared/lib/haptics';
 import { showInfo } from '@/shared/ui/toast';
+import type { Direction } from '@/theme';
 
 import { HERO_GRID } from '../config/heroPattern';
 import { ONBOARDING_STEPS, REMINDER_COPY } from '../config/steps';
@@ -18,6 +20,28 @@ export function useOnboardingViewModel(step: OnboardingStep) {
   const setDraftReminder = useAuthStore((s) => s.setDraftReminder);
   const { finishOnboarding } = useSessionActions();
   const [finishing, setFinishing] = useState(false);
+  const [direction, setDirection] = useState<Direction>('forward');
+
+  /** Intensity ↔ Setup change inside the same screen; the latest tap wins (setting a param is idempotent). */
+  const toStep = (next: OnboardingStep) => {
+    setDirection(next > step ? 'forward' : 'back');
+    showOnboardingStep(next);
+  };
+  const back = () => {
+    if (step === 2) toStep(1);
+    else goBack(() => openOnboarding(previous(step), { replace: true }));
+  };
+
+  // Android's back button on Setup returns to Intensity (in-screen), like the on-screen Back.
+  useEffect(() => {
+    if (step !== 2) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setDirection('back');
+      showOnboardingStep(1);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [step]);
 
   const finish = async () => {
     if (finishing) return;
@@ -34,12 +58,13 @@ export function useOnboardingViewModel(step: OnboardingStep) {
 
   const onPrimary = {
     0: () => openLogin('new'),
-    1: () => openOnboarding(2),
+    1: () => toStep(2),
     2: () => void finish(),
   }[step];
 
   return {
     step,
+    direction,
     stepCount: ONBOARDING_STEPS.length,
     copy: ONBOARDING_STEPS[step],
     reminderCopy: REMINDER_COPY,
@@ -56,7 +81,7 @@ export function useOnboardingViewModel(step: OnboardingStep) {
     onPrimary,
     onSkip: () => void finish(),
     onHaveAccount: () => openLogin('existing'),
-    onBack: () => goBack(() => openOnboarding(previous(step), { replace: true })),
+    onBack: back,
     onToggleActivity: (id: string) => {
       haptics.selection();
       toggleDraftActivity(id);

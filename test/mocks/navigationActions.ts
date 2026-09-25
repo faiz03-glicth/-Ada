@@ -11,6 +11,7 @@ export const openActivityEditor = jest.fn();
 export const openSettings = jest.fn();
 export const openEditField = jest.fn();
 export const openOnboarding = jest.fn();
+export const showOnboardingStep = jest.fn();
 export const openLogin = jest.fn();
 export const goBack = jest.fn();
 export const openLegal = jest.fn(async () => undefined);
