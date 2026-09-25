@@ -34,7 +34,10 @@ function NavigationTheme({ children }: { children: ReactNode }) {
   return <ThemeProvider value={value}>{children}</ThemeProvider>;
 }
 
-/** Exactly one group is reachable at a time; the guards move people between them (with a cross-fade). */
+/**
+ * Exactly one group is reachable at a time; the guards move people between them (with the motion system's
+ * cross-fade: finishing onboarding fades into the app, logging out fades back to Login).
+ */
 function RootNavigator() {
   useAuthAutoRefresh();
   const { theme } = useUnistyles();
@@ -45,6 +48,7 @@ function RootNavigator() {
       screenOptions={{
         headerShown: false,
         animation: transitions.groupSwitch,
+        animationDuration: transitions.fadeMs,
         contentStyle: { backgroundColor: theme.colors.canvas },
       }}
     >

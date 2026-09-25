@@ -1,10 +1,8 @@
 import { View } from 'react-native';
-import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { AuthIntent } from '@/features/auth/domain/types';
-import { Banner, Button, NavBar, Screen } from '@/shared/ui';
-import { layoutMotion } from '@/theme';
+import { Banner, Button, ContentSwap, LogoMark, NavBar, Screen, ScreenTransition } from '@/shared/ui';
 
 import { BenefitsCard } from './components/BenefitsCard';
 import { CodeStep } from './components/CodeStep';
@@ -14,10 +12,15 @@ import { LoginHeader } from './components/LoginHeader';
 import { ProviderButtons } from './components/ProviderButtons';
 import { useLoginViewModel } from './useLoginViewModel';
 
-/** One route for new and returning people; providers → email → code are in-page steps. */
+/**
+ * One route for new and returning people; providers → email → code are in-page steps that change page like
+ * onboarding does (pushForward deeper into the flow, pushBack on the way out). The mark stays put above
+ * them and arrives like the heatmap it is drawn from.
+ */
 export function LoginScreen({ intent }: { intent: AuthIntent }) {
   const vm = useLoginViewModel(intent);
   const emailBusy = vm.busyProvider === 'email';
+  const showSkip = vm.showSkip && vm.step === 'providers';
 
   return (
     <Screen scroll inset="wide" testID={`login-${intent}`} contentStyle={styles.content}>
@@ -25,25 +28,26 @@ export function LoginScreen({ intent }: { intent: AuthIntent }) {
         onBack={vm.onBack}
         backDisabled={vm.busy}
         right={
-          vm.showSkip && vm.step === 'providers' ? (
-            <Button
-              label="Skip"
-              variant="quiet"
-              size="sm"
-              onPress={vm.onSkip}
-              disabled={vm.busy}
-              testID="login-skip"
-            />
-          ) : null
+          <ContentSwap id={showSkip ? 'skip' : 'none'}>
+            {showSkip && (
+              <Button
+                label="Skip"
+                variant="quiet"
+                size="sm"
+                onPress={vm.onSkip}
+                disabled={vm.busy}
+                testID="login-skip"
+              />
+            )}
+          </ContentSwap>
         }
       />
 
-      <Animated.View
-        key={vm.step}
-        entering={layoutMotion.fade}
-        exiting={layoutMotion.fadeOut}
-        style={styles.step}
-      >
+      <View style={styles.mark}>
+        <LogoMark size={76} animateIn holdable />
+      </View>
+
+      <ScreenTransition index={vm.stepIndex} style={styles.step}>
         <LoginHeader title={vm.heading.title} subtitle={vm.heading.subtitle} />
         {vm.step === 'providers' && <BenefitsCard benefits={vm.benefits} />}
         <View style={styles.spacer} />
@@ -80,7 +84,7 @@ export function LoginScreen({ intent }: { intent: AuthIntent }) {
             onUseDifferentEmail={vm.onUseDifferentEmail}
           />
         )}
-      </Animated.View>
+      </ScreenTransition>
 
       <LegalFooter onTerms={vm.onTerms} onPrivacy={vm.onPrivacy} />
     </Screen>
@@ -89,6 +93,8 @@ export function LoginScreen({ intent }: { intent: AuthIntent }) {
 
 const styles = StyleSheet.create((theme) => ({
   content: { paddingTop: theme.spacing.lg, paddingBottom: theme.spacing.xxl, gap: theme.spacing.stack },
+  // Mark → title keeps the header's own rhythm (md), inside the screen's stack gap.
+  mark: { alignItems: 'center', marginBottom: theme.spacing.md - theme.spacing.stack },
   step: { flexGrow: 1, gap: theme.spacing.stack },
   spacer: { flexGrow: 1, minHeight: theme.spacing.sm },
 }));

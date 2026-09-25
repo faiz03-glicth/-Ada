@@ -1,12 +1,15 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { useState } from 'react';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { getAnimatedStyle } from 'react-native-reanimated';
 import { toast } from 'sonner-native';
 
-import { TAB_ITEMS } from '@/shared/config/tabs';
+import { TAB_ITEMS, type TabId } from '@/shared/config/tabs';
 import { motion } from '@/theme';
 import { useThemePreferencesStore } from '@/theme/state/themePreferencesStore';
+import type { ColorScheme, VisualStyle } from '@/theme/types';
+import { setTestTheme } from '@test/mocks/unistyles';
 import { renderInScheme, SCHEMES, styleOf } from '@test/render';
 
 import { PhasePlaceholder } from '../PhasePlaceholder';
@@ -142,6 +145,99 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     fireEvent.press(screen.getByRole('button', { name: 'Back' }));
     expect(onBack).toHaveBeenCalled();
   });
+});
+
+const LOOKS: readonly [ColorScheme, VisualStyle][] = [
+  ['light', 'classic'],
+  ['dark', 'classic'],
+  ['light', 'glass'],
+  ['dark', 'glass'],
+];
+
+describe.each(LOOKS)('the liquid in %s %s', (scheme, style) => {
+  // Real bar order: Home, Insights, the + button's slot, History, Profile. Every tab is 70pt wide.
+  const TAB_X: Record<TabId, number> = { home: 10, insights: 80, history: 234, profile: 304 };
+  const hidden = { includeHiddenElements: true };
+  // Where each end's right cap rests on a tab: the liquid is 70pt wide and 52pt tall (the tab row) here.
+  const restX = (tab: TabId) => TAB_X[tab] + 35 + (70 - 52) / 2 - 52 / 2;
+  const capX = (testID: string) => {
+    const transform = getAnimatedStyle(screen.getByTestId(testID, hidden)).transform;
+    const entry = Array.isArray(transform) ? transform.find((t) => 'translateX' in t) : undefined;
+    return entry && 'translateX' in entry ? entry.translateX : undefined;
+  };
+  const measure = () =>
+    TAB_ITEMS.forEach((item) =>
+      fireEvent(screen.getByTestId(`tab-${item.id}`), 'layout', {
+        nativeEvent: { layout: { x: TAB_X[item.id], y: 6, width: 70, height: 52 } },
+      }),
+    );
+  const settle = (ms = 2000) => act(() => jest.advanceTimersByTime(ms));
+  const expectOnePillOn = (tab: TabId) => {
+    expect(screen.getAllByTestId('tab-indicator', hidden)).toHaveLength(1);
+    expect(getAnimatedStyle(screen.getByTestId('tab-indicator', hidden)).opacity).toBe(1);
+    // Both ends gathered on the tab: one pill, nothing left behind.
+    expect(capX('liquid-head')).toBeCloseTo(restX(tab));
+    expect(capX('liquid-tail')).toBeCloseTo(restX(tab));
+  };
+
+  function NavigatingBar({ initial = 'home' }: { initial?: TabId }) {
+    const [active, setActive] = useState<TabId>(initial);
+    return <TabBar items={TAB_ITEMS} active={active} onTabPress={setActive} onFabPress={jest.fn()} />;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    setTestTheme(scheme, style);
+  });
+  afterEach(() => {
+    act(() => useThemePreferencesStore.getState().setReduceMotion('system'));
+    jest.useRealTimers();
+  });
+
+  it("is never drawn at the bar's left edge before it is placed, even if the tab changed first", () => {
+    const { rerender } = render(
+      <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
+    );
+    // Navigated before the bar was laid out (e.g. opened on Profile).
+    rerender(<TabBar items={TAB_ITEMS} active="profile" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
+    measure();
+    // Its first frame still holds the starting zeros (a pill at x 0, beside Home), so it must be hidden.
+    expect(getAnimatedStyle(screen.getByTestId('tab-indicator', hidden)).opacity).toBe(0);
+    // One frame later it is on Profile, having jumped there rather than slid in from the left edge.
+    settle(16);
+    expectOnePillOn('profile');
+  });
+
+  it.each([false, true])(
+    'moves ONE pill between any tabs and leaves nothing behind (Reduce Motion: %s)',
+    (reduceMotion) => {
+      if (reduceMotion) act(() => useThemePreferencesStore.getState().setReduceMotion('on'));
+      render(<NavigatingBar />);
+      measure();
+      settle();
+      expectOnePillOn('home');
+
+      const tap = (name: string) => fireEvent.press(screen.getByRole('tab', { name }));
+      for (const [name, tab] of [
+        ['Profile', 'profile'],
+        ['Home', 'home'],
+        ['Insights', 'insights'],
+        ['Profile', 'profile'],
+      ] as const) {
+        tap(name);
+        settle();
+        expectOnePillOn(tab);
+      }
+
+      // Rapid switching: each tap redirects the pill mid-flight; it settles on the last one.
+      for (const name of ['Home', 'History', 'Insights', 'Profile', 'Home', 'Profile']) {
+        tap(name);
+        settle(40);
+      }
+      settle();
+      expectOnePillOn('profile');
+    },
+  );
 });
 
 describe('toast helpers', () => {

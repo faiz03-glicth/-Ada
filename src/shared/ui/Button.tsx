@@ -1,8 +1,9 @@
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { useStateTransition, type Theme } from '@/theme';
 
+import { ContentSwap } from './ContentSwap';
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { PressableScale } from './PressableScale';
@@ -34,7 +35,12 @@ const foreground = (theme: Theme, variant: ButtonVariant): string =>
     danger: theme.colors.danger,
   })[variant];
 
-/** Text-only variants (ghost, quiet) are 40pt tall with hit slop so the touch target still reaches 44pt. */
+/**
+ * Every button shares one behaviour: the press preset, a dimmed disabled state that eases in and out, and
+ * a content cross-fade when the label or the loading state changes (the button itself never moves or
+ * resizes). Text-only variants (ghost, quiet) are 40pt tall with hit slop so the touch target still
+ * reaches 44pt.
+ */
 export function Button({
   label,
   onPress,
@@ -53,6 +59,7 @@ export function Button({
   const inactive = disabled || loading;
   const textOnly = variant === 'ghost' || variant === 'quiet';
   const fade = useStateTransition('opacity');
+  const shownLabel = loading ? (loadingLabel ?? label) : label;
 
   return (
     <PressableScale
@@ -61,12 +68,12 @@ export function Button({
       disabled={inactive}
       hitSlop={textOnly ? 2 : undefined}
       accessibilityRole="button"
-      accessibilityLabel={loading ? (loadingLabel ?? label) : (accessibilityLabel ?? label)}
+      accessibilityLabel={loading ? shownLabel : (accessibilityLabel ?? label)}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
       style={[styles.base(variant, size), { opacity: disabled && !loading ? 0.45 : 1 }, fade]}
     >
-      <View style={styles.content}>
+      <ContentSwap id={loading ? `busy:${shownLabel}` : label} style={styles.content}>
         {loading ? (
           <ActivityIndicator size="small" color={color} />
         ) : (
@@ -78,9 +85,9 @@ export function Button({
           style={{ color }}
           numberOfLines={1}
         >
-          {loading ? (loadingLabel ?? label) : label}
+          {shownLabel}
         </Text>
-      </View>
+      </ContentSwap>
     </PressableScale>
   );
 }

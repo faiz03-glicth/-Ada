@@ -1,7 +1,6 @@
 import type { CSSKeyframesRule } from 'react-native-reanimated';
 
-import { buildTheme } from '../buildTheme';
-import { checkInPulse, heatRevealRules, selection, staggerIn } from '../motion/cssMotion';
+import { checkInPulse, heatmapReveal, staggerIn } from '../motion/cssMotion';
 
 /*
  * Jest never hands keyframes to Reanimated's native side, so invalid ones only crash on a phone
@@ -14,13 +13,8 @@ const { normalizeKeyframeSelector } =
   };
 
 const rules: [string, CSSKeyframesRule][] = [
-  ...(['light', 'dark'] as const).flatMap((scheme) =>
-    heatRevealRules(buildTheme(scheme, 'meadow', 'classic').heat).map(
-      (rule, level): [string, CSSKeyframesRule] => [`heat reveal (${scheme}, level ${level})`, rule],
-    ),
-  ),
+  ['heatmap reveal', heatmapReveal(0, 0).animationName],
   ['stagger-in', staggerIn(0).animationName],
-  ['selection swell', selection.animationName],
   ['check-in pulse', checkInPulse.animationName],
 ];
 

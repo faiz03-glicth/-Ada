@@ -14,15 +14,19 @@ export type {
 export { buildTheme } from './buildTheme';
 export { HEAT_PALETTE_IDS } from './tokens/heatPalettes';
 export { BRAND_GREEN } from './tokens/brand';
-export { cssEase, motion } from './tokens/motion';
 export { resolveScheme, useResolvedScheme } from './hooks/useResolvedScheme';
-export { useNavigationMotion, type NavigationMotion } from './hooks/useNavigationMotion';
 export { resolveReduceMotion, useReduceMotion, useSystemReduceMotion } from './hooks/useReduceMotion';
-export { useStateTransition } from './hooks/useStateTransition';
-// The motion system: presets by meaning, one source of timing, Reduce Motion resolved once.
-export { heatRevealRules, type HeatRevealRules, type HeatRevealStyle } from './motion/cssMotion';
-export { layoutMotion, type Direction } from './motion/layoutMotion';
-export { useMotion } from './motion/useMotion';
 export { isGlassSupported, resolveVisualStyle, useGlassSupport } from './hooks/useGlassSupport';
+// The motion system: one source of timing (tokens), presets by meaning, Reduce Motion resolved once.
+// Components ask for a meaning (press, selection, heatmapReveal, push…); none writes its own animation.
+export { cssEase, motion, type Curve } from './tokens/motion';
+export { heatmapRevealDelay, type HeatmapRevealStyle } from './motion/cssMotion';
+export { layoutMotion, type Direction } from './motion/layoutMotion';
+export { useHoldMotion, type HoldMotionEvents } from './motion/useHoldMotion';
+export { useMotion } from './motion/useMotion';
+export { useNavigationMotion, type NavigationMotion } from './motion/useNavigationMotion';
+export { usePressMotion, type PressFeedback } from './motion/usePressMotion';
+export { useSelectionMotion } from './motion/useSelectionMotion';
+export { useStateTransition } from './motion/useStateTransition';
 export { MotionRuntimeBridge } from './sync/MotionRuntimeBridge';
 export { ThemeRuntimeBridge } from './sync/ThemeRuntimeBridge';

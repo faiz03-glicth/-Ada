@@ -14,10 +14,17 @@ export interface IntensityGuideProps {
   cellSize?: number;
   /** List only: the levels build in order, quietest to deepest (the motion system's staggerIn). */
   animateIn?: boolean;
+  /** With animateIn: false holds the levels (hidden) until the guide is on screen, e.g. a page not reached yet. */
+  revealed?: boolean;
 }
 
 /** Explains the five intensity levels. Shared by onboarding, the heatmap screen and activity preferences. */
-export function IntensityGuide({ layout = 'list', cellSize = 30, animateIn = false }: IntensityGuideProps) {
+export function IntensityGuide({
+  layout = 'list',
+  cellSize = 30,
+  animateIn = false,
+  revealed = true,
+}: IntensityGuideProps) {
   const radius = Math.round(cellSize * 0.3);
   const motion = useMotion();
 
@@ -49,7 +56,7 @@ export function IntensityGuide({ layout = 'list', cellSize = 30, animateIn = fal
       {INTENSITY_LEVELS.map((info, index) => (
         <Animated.View
           key={info.level}
-          style={[styles.listItem, animateIn && motion.staggerIn(index)]}
+          style={[styles.listItem, animateIn && motion.staggerIn(index, revealed)]}
           accessible
           accessibilityLabel={`${info.name}: ${info.rangeLabel}`}
         >

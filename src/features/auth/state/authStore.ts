@@ -32,6 +32,8 @@ interface AuthState {
   setIntent: (intent: AuthIntent | null) => void;
   setPendingProvider: (provider: AuthProvider | null) => void;
   completeOnboarding: () => void;
+  /** Someone is starting a new account here: onboarding runs again, even if it was finished before. */
+  restartOnboarding: () => void;
   toggleDraftActivity: (id: string) => void;
   setDraftReminder: (enabled: boolean) => void;
 }
@@ -64,6 +66,7 @@ export const useAuthStore = create<AuthState>()(
       setIntent: (intent) => set({ intent }),
       setPendingProvider: (pendingProvider) => set({ pendingProvider }),
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+      restartOnboarding: () => set({ hasCompletedOnboarding: false }),
       toggleDraftActivity: (id) =>
         set(({ onboardingDraft }) => {
           const selected = onboardingDraft.selectedActivityIds;

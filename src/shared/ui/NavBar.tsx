@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { ContentSwap } from './ContentSwap';
 import { IconButton } from './IconButton';
 import { Text } from './Text';
 
@@ -18,15 +19,18 @@ export function NavBar({ title, onBack, backDisabled = false, backLabel = 'Back'
   return (
     <View style={styles.bar}>
       <View style={styles.side}>
-        {onBack && (
-          <IconButton
-            icon="chevron-left"
-            plain
-            onPress={onBack}
-            disabled={backDisabled}
-            accessibilityLabel={backLabel}
-          />
-        )}
+        {/* Back fades in and out when a screen's page gains or loses it (never pops). */}
+        <ContentSwap id={onBack ? 'back' : 'none'}>
+          {onBack && (
+            <IconButton
+              icon="chevron-left"
+              plain
+              onPress={onBack}
+              disabled={backDisabled}
+              accessibilityLabel={backLabel}
+            />
+          )}
+        </ContentSwap>
       </View>
       {title ? (
         <Text variant="headline" numberOfLines={1} style={styles.title} accessibilityRole="header">

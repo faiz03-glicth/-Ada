@@ -60,7 +60,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         image: './assets/splash-icon.png',
         imageWidth: 120,
         resizeMode: 'contain',
-        backgroundColor: '#F6F7F5',
+        // The light and dark canvas colours, so the splash fades into the first screen without a shift.
+        backgroundColor: '#F2F5F1',
         dark: { backgroundColor: '#0D100E' },
       },
     ],

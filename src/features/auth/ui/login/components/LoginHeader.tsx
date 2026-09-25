@@ -1,12 +1,12 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { LogoMark, Text } from '@/shared/ui';
+import { Text } from '@/shared/ui';
 
+/** The step's title and subtitle. The logo mark sits above it, outside the step (it never changes). */
 export function LoginHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View style={styles.header}>
-      <LogoMark size={76} />
       <Text variant="title" align="center" accessibilityRole="header">
         {title}
       </Text>

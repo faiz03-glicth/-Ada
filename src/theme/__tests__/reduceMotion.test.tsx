@@ -2,8 +2,8 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import { reduceMotionCaption, themeCaption } from '@/features/settings/config/appearance';
 
-import { useNavigationMotion } from '../hooks/useNavigationMotion';
 import { resolveReduceMotion, useReduceMotion } from '../hooks/useReduceMotion';
+import { useNavigationMotion } from '../motion/useNavigationMotion';
 import { useSystemMotionStore } from '../state/systemMotionStore';
 import { useThemePreferencesStore } from '../state/themePreferencesStore';
 import { motion } from '../tokens/motion';
@@ -55,13 +55,18 @@ describe('useReduceMotion', () => {
 describe('useNavigationMotion', () => {
   it('slides normally and only fades with Reduce Motion', () => {
     const { result } = renderHook(() => useNavigationMotion());
-    expect(result.current).toBe(motion.navigation);
+    expect(result.current).toEqual({ ...motion.navigation.full, fadeMs: motion.navigation.fadeMs });
     act(() => useThemePreferencesStore.getState().setReduceMotion('on'));
-    expect(result.current).toEqual({ push: 'fade', groupSwitch: 'fade', tabs: 'fade' });
+    expect(result.current).toEqual({
+      push: 'fade',
+      groupSwitch: 'fade',
+      tabs: 'fade',
+      fadeMs: motion.navigation.fadeMs,
+    });
   });
 
   it('never changes the tab transition, so toggling Reduce Motion cannot remount (blank) the tabs', () => {
-    expect(motion.reducedNavigation.tabs).toBe(motion.navigation.tabs);
+    expect(motion.navigation.reduced.tabs).toBe(motion.navigation.full.tabs);
   });
 });
 

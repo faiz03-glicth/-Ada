@@ -15,13 +15,15 @@ import { useAuthStore } from '../../state/authStore';
  * or show the right feedback (Cancelled stays silent).
  */
 export function useSignInAttempt(intent: AuthIntent) {
-  const hasCompletedOnboarding = useAuthStore((s) => s.hasCompletedOnboarding);
+  const restartOnboarding = useAuthStore((s) => s.restartOnboarding);
   const { finishOnboarding } = useSessionActions();
   const [feedback, setFeedback] = useState<AuthFeedback>({ banner: null, codeError: null });
 
   /** New people continue to onboarding step 1; returning people go Home (via the route guard). */
   const continueAfterSignIn = async (user: AuthUser) => {
     haptics.success();
+    // Read now, not at render: a new-account attempt has just cleared it.
+    const { hasCompletedOnboarding } = useAuthStore.getState();
     if (!hasCompletedOnboarding && (intent === 'new' || user.provider === 'guest')) {
       openOnboarding(1, { replace: true });
       return;
@@ -42,6 +44,10 @@ export function useSignInAttempt(intent: AuthIntent) {
   const attempt = async (signIn: () => Promise<AuthUser>): Promise<void> => {
     haptics.light();
     setFeedback({ banner: null, codeError: null });
+    // A new account always goes through setup, even on a phone where it was finished before (e.g. after
+    // logging out and choosing "Get started"). Cleared before the session starts, so the route guard
+    // keeps the person in onboarding instead of opening Home the moment they're signed in.
+    if (intent === 'new') restartOnboarding();
     let user: AuthUser;
     try {
       user = await signIn();

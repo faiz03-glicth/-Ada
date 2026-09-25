@@ -31,21 +31,31 @@ const sameLook = (a: Look, b: Look) =>
   a.scheme === b.scheme && a.paletteId === b.paletteId && a.style === b.style;
 const canvasOf = (look: Look) => buildTheme(look.scheme, look.paletteId, look.style).colors.canvas;
 
-const { themeFade, ease } = motion;
+const { themeTransition, ease } = motion;
 // Opacity only, driven by the bridge itself (with Reduce Motion the veil is skipped, not shortened).
-const veilIn = { duration: themeFade.in, easing: ease.exit, reduceMotion: ReduceMotion.Never };
-const veilOut = { duration: themeFade.out, easing: ease.enter, reduceMotion: ReduceMotion.Never };
+const veilIn = { duration: themeTransition.coverMs, easing: ease.exit, reduceMotion: ReduceMotion.Never };
+const veilOut = {
+  duration: themeTransition.revealMs,
+  easing: ease.standard,
+  reduceMotion: ReduceMotion.Never,
+};
 
 /**
  * Keeps the native theme, appearance and system bars in sync with the stored preferences, and makes theme
- * changes fluid. The preference (e.g. "System") is stored as chosen; the resolved look is derived from it.
+ * changes fluid (the motion system's themeTransition). The preference (e.g. "System") is stored as chosen;
+ * the resolved look is derived from it.
  *
- * A change fades through the new background: a veil in the new canvas colour covers the app, the theme is
- * swapped underneath while nothing is visible, then the veil lifts. There is never a half-themed frame or
- * a flash, and the brand green (identical in both schemes) simply stays put. The veil is one opacity
- * animation on the UI thread, so nothing re-renders per frame. It never plays at launch (the first frame
- * is already right), with Reduce Motion (the swap is instant), or while the app is in the background.
- * Rapid changes retarget the veil; the latest choice is the one revealed.
+ * A change fades through the screen's own background: a veil in the CURRENT canvas colour covers the app
+ * (the content fades away; the screen neither brightens nor darkens yet), the theme is swapped underneath
+ * while nothing is visible, then the veil lifts and the new look emerges, the background brightening or
+ * deepening gradually. Dark → Light therefore never washes to white in one step, and Light → Dark never
+ * drops to black. There is never a half-themed frame, and the brand green (identical in both schemes)
+ * simply stays put. The same transition in both directions, light, dark and glass alike.
+ *
+ * The veil is one opacity animation on the UI thread, so nothing re-renders per frame. It never plays at
+ * launch (the first frame is already right), with Reduce Motion (the swap is instant), or while the app is
+ * in the background. Rapid changes retarget it without a jump: a veil that is still up keeps its colour
+ * and simply covers again, and the latest choice is the one revealed.
  *
  * Rendered after the app so the veil sits above everything.
  */
@@ -66,6 +76,8 @@ export function ThemeRuntimeBridge() {
   const shown = useRef<Look | null>(null);
   const latest = useRef(target);
   const bars = useRef<SystemBarsEntry | null>(null);
+  // Whether the veil is anywhere above zero (tracked here: the veil itself animates on the UI thread).
+  const veilUp = useRef(false);
   const veil = useSharedValue(0);
   const veilColor = useSharedValue(canvasOf(target));
   const veilStyle = useAnimatedStyle(() => ({ opacity: veil.get(), backgroundColor: veilColor.get() }));
@@ -88,11 +100,22 @@ export function ThemeRuntimeBridge() {
       : SystemBars.pushStackEntry(bar);
   }, []);
 
+  const lowered = useCallback(() => {
+    veilUp.current = false;
+  }, []);
+
   // Called on the JS thread once the veil fully covers the app: swap, then lift after two frames.
   const reveal = useCallback(() => {
     apply(latest.current);
-    veil.set(withDelay(themeFade.hold, withTiming(0, veilOut)));
-  }, [apply, veil]);
+    veil.set(
+      withDelay(
+        themeTransition.holdMs,
+        withTiming(0, veilOut, (finished) => {
+          if (finished) scheduleOnRN(lowered);
+        }),
+      ),
+    );
+  }, [apply, veil, lowered]);
 
   useEffect(() => {
     latest.current = target;
@@ -101,10 +124,13 @@ export function ThemeRuntimeBridge() {
     // Launch (already right on the first frame), Reduce Motion, or not on screen: apply at once.
     if (!current || reduced || AppState.currentState !== 'active') {
       veil.set(0);
+      veilUp.current = false;
       apply(target);
       return;
     }
-    veilColor.set(canvasOf(target));
+    // The veil takes the colour of what is on screen; one that's still up keeps its colour (no jump).
+    if (!veilUp.current) veilColor.set(canvasOf(current));
+    veilUp.current = true;
     veil.set(
       withTiming(1, veilIn, (finished) => {
         if (finished) scheduleOnRN(reveal);
@@ -121,6 +147,7 @@ export function ThemeRuntimeBridge() {
 
   return (
     <Animated.View
+      testID="theme-veil"
       pointerEvents="none"
       accessible={false}
       importantForAccessibility="no-hide-descendants"

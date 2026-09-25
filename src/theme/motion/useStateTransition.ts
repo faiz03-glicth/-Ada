@@ -1,9 +1,9 @@
 import type { CSSTransitionProperties } from 'react-native-reanimated';
 
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { cssEase, motion } from '../tokens/motion';
-import { useReduceMotion } from './useReduceMotion';
 
-type Speed = keyof typeof motion.speed;
+type Duration = keyof typeof motion.duration;
 
 /**
  * Declarative Reanimated CSS transition props for a component's visual state changes (selected, focused,
@@ -13,12 +13,12 @@ type Speed = keyof typeof motion.speed;
  */
 export function useStateTransition(
   property: CSSTransitionProperties['transitionProperty'],
-  speed: Speed = 'fast',
+  duration: Duration = 'fast',
 ): CSSTransitionProperties {
   const reduced = useReduceMotion();
   return {
     transitionProperty: property,
-    transitionDuration: reduced ? 0 : motion.speed[speed],
+    transitionDuration: reduced ? 0 : motion.duration[duration],
     transitionTimingFunction: cssEase.standard,
   };
 }

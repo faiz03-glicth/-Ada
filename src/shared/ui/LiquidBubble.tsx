@@ -104,6 +104,7 @@ export function LiquidBubble({
     >
       <Animated.View style={[styles.span(height), neck]} />
       <LiquidPill
+        testID="liquid-tail"
         center={trail}
         width={tailWidth}
         height={height}

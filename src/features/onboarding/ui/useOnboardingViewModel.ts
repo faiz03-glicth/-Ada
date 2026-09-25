@@ -3,16 +3,17 @@ import { BackHandler } from 'react-native';
 
 import { SEED_ACTIVITIES } from '@/features/activities/config/seedActivities';
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { goBack, openLogin, openOnboarding, showOnboardingStep, type OnboardingStep } from '@/shared/actions';
+import { openLogin, showOnboardingStep, type OnboardingStep } from '@/shared/actions';
 import { useSessionActions } from '@/shared/actions/session';
 import { haptics } from '@/shared/lib/haptics';
 import { showInfo } from '@/shared/ui/toast';
-import type { Direction } from '@/theme';
 
 import { HERO_GRID } from '../config/heroPattern';
 import { ONBOARDING_STEPS, REMINDER_COPY } from '../config/steps';
 
 const previous = (step: OnboardingStep): OnboardingStep => (step === 2 ? 1 : 0);
+/** A pager page as a step (the pager only ever reports 0…2). */
+const asStep = (page: number): OnboardingStep => (page >= 2 ? 2 : page <= 0 ? 0 : 1);
 
 export function useOnboardingViewModel(step: OnboardingStep) {
   const draft = useAuthStore((s) => s.onboardingDraft);
@@ -20,24 +21,20 @@ export function useOnboardingViewModel(step: OnboardingStep) {
   const setDraftReminder = useAuthStore((s) => s.setDraftReminder);
   const { finishOnboarding } = useSessionActions();
   const [finishing, setFinishing] = useState(false);
-  const [direction, setDirection] = useState<Direction>('forward');
 
-  /** Intensity ↔ Setup change inside the same screen; the latest tap wins (setting a param is idempotent). */
-  const toStep = (next: OnboardingStep) => {
-    setDirection(next > step ? 'forward' : 'back');
-    showOnboardingStep(next);
-  };
+  /**
+   * The three steps are pages of one pager: swiping, Continue and Back all just set the step (the latest
+   * wins; setting a param is idempotent). How the pages move is the pager's job.
+   */
   const back = () => {
-    if (step === 2) toStep(1);
-    else goBack(() => openOnboarding(previous(step), { replace: true }));
+    if (step > 0) showOnboardingStep(previous(step));
   };
 
-  // Android's back button on Setup returns to Intensity (in-screen), like the on-screen Back.
+  // Android's back button goes one page back too, like the on-screen Back (on Welcome it leaves as usual).
   useEffect(() => {
-    if (step !== 2) return;
+    if (step === 0) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setDirection('back');
-      showOnboardingStep(1);
+      showOnboardingStep(previous(step));
       return true;
     });
     return () => subscription.remove();
@@ -58,14 +55,15 @@ export function useOnboardingViewModel(step: OnboardingStep) {
 
   const onPrimary = {
     0: () => openLogin('new'),
-    1: () => toStep(2),
+    1: () => showOnboardingStep(2),
     2: () => void finish(),
   }[step];
 
   return {
     step,
-    direction,
     stepCount: ONBOARDING_STEPS.length,
+    /** Every page's copy (the pager shows them side by side); `copy` is the current one. */
+    pages: ONBOARDING_STEPS,
     copy: ONBOARDING_STEPS[step],
     reminderCopy: REMINDER_COPY,
     showBack: step > 0,
@@ -82,6 +80,8 @@ export function useOnboardingViewModel(step: OnboardingStep) {
     onSkip: () => void finish(),
     onHaveAccount: () => openLogin('existing'),
     onBack: back,
+    /** A swipe made another page the current one. */
+    onPageChange: (page: number) => showOnboardingStep(asStep(page)),
     onToggleActivity: (id: string) => {
       haptics.selection();
       toggleDraftActivity(id);

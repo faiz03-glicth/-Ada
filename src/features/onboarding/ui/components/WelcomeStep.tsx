@@ -27,12 +27,14 @@ export function WelcomeStep({ grid, title, body }: { grid: HeatGrid; title: stri
           <Heatmap grid={grid} cellSize={cell} gap={GAP} radius={6} animateIn />
         </View>
       </Card>
-      <StepHeading title={title} body={body} />
+      <StepHeading title={title} body={body} style={styles.heading} />
     </>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create((theme) => ({
   card: { paddingVertical: 18, paddingHorizontal: 8 },
   hero: { alignItems: 'center', paddingVertical: 10 },
-});
+  // The prototype sets the Welcome copy a little further from the hero than the other steps' spacing.
+  heading: { marginTop: theme.spacing.xs + 2 },
+}));

@@ -1,5 +1,7 @@
-import { View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+
+import { layoutMotion } from '@/theme';
 
 import { Icon } from './Icon';
 import { Text } from './Text';
@@ -9,11 +11,16 @@ export interface BannerProps {
   testID?: string;
 }
 
-/** Inline error message (dangerSoft background, danger text), announced by screen readers when it appears. */
+/**
+ * Inline error message (dangerSoft background, danger text), announced by screen readers when it appears.
+ * It rises into place (the motion system's fadeUp) and fades when cleared: calm, never a shake.
+ */
 export function Banner({ message, testID }: BannerProps) {
   const { theme } = useUnistyles();
   return (
-    <View
+    <Animated.View
+      entering={layoutMotion.fadeUp}
+      exiting={layoutMotion.fade.out}
       testID={testID}
       style={styles.banner}
       accessible
@@ -25,7 +32,7 @@ export function Banner({ message, testID }: BannerProps) {
       <Text variant="footnote" tone="danger" style={styles.text}>
         {message}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 

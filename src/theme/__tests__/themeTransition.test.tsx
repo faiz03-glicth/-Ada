@@ -1,9 +1,11 @@
-import { act, render, renderHook } from '@testing-library/react-native';
+import { act, render, renderHook, screen } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
+import { getAnimatedStyle } from 'react-native-reanimated';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
-import { useStateTransition } from '../hooks/useStateTransition';
+import { buildTheme } from '../buildTheme';
+import { useStateTransition } from '../motion/useStateTransition';
 import { useThemePreferencesStore } from '../state/themePreferencesStore';
 import { ThemeRuntimeBridge } from '../sync/ThemeRuntimeBridge';
 import { motion } from '../tokens/motion';
@@ -17,6 +19,9 @@ jest.mock('react-native-edge-to-edge', () => ({
 }));
 
 const prefs = () => useThemePreferencesStore.getState();
+const canvas = (scheme: 'light' | 'dark') => buildTheme(scheme, 'meadow', 'classic').colors.canvas;
+// The veil is hidden from screen readers on purpose, so the query has to include hidden elements.
+const veil = () => getAnimatedStyle(screen.getByTestId('theme-veil', { includeHiddenElements: true }));
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -42,11 +47,37 @@ describe('theme transitions', () => {
     expect(prefs().preference).toBe('dark');
     expect(UnistylesRuntime.setTheme).not.toHaveBeenCalled();
 
-    act(() => jest.advanceTimersByTime(motion.themeFade.in + 50));
+    act(() => jest.advanceTimersByTime(motion.themeTransition.coverMs + 50));
     expect(UnistylesRuntime.setTheme).toHaveBeenCalledWith('dark');
     expect(SystemBars.replaceStackEntry).toHaveBeenCalledWith(expect.anything(), { style: 'light' });
     // The theme never touches the motion setting.
     expect(prefs().reduceMotion).toBe('off');
+  });
+
+  it("fade through the screen's own background: entering light never washes the screen white first", () => {
+    act(() => useThemePreferencesStore.setState({ preference: 'dark' }));
+    render(<ThemeRuntimeBridge />);
+
+    act(() => prefs().setPreference('light'));
+    act(() => jest.advanceTimersByTime(motion.themeTransition.coverMs / 2));
+    // The content fades into the dark canvas it's already on; the light one only emerges as the veil lifts.
+    expect(veil().backgroundColor).toBe(canvas('dark'));
+    expect(veil().opacity).toBeGreaterThan(0);
+  });
+
+  it('a veil that is still lifting keeps its colour when the theme changes again (no jump)', () => {
+    render(<ThemeRuntimeBridge />);
+
+    act(() => prefs().setPreference('dark'));
+    act(() => jest.advanceTimersByTime(motion.themeTransition.coverMs + motion.themeTransition.holdMs + 60));
+    expect(UnistylesRuntime.setTheme).toHaveBeenLastCalledWith('dark');
+    expect(veil().backgroundColor).toBe(canvas('light'));
+
+    act(() => prefs().setPreference('light'));
+    expect(veil().backgroundColor).toBe(canvas('light'));
+    act(() => jest.advanceTimersByTime(1000));
+    expect(UnistylesRuntime.setTheme).toHaveBeenLastCalledWith('light');
+    expect(veil().opacity).toBe(0);
   });
 
   it('switch instantly with Reduce Motion', () => {
@@ -76,7 +107,7 @@ describe('useStateTransition', () => {
     const { result, rerender } = renderHook(() => useStateTransition(['borderColor'], 'normal'));
     expect(result.current).toMatchObject({
       transitionProperty: ['borderColor'],
-      transitionDuration: motion.speed.normal,
+      transitionDuration: motion.duration.normal,
     });
 
     act(() => prefs().setReduceMotion('on'));

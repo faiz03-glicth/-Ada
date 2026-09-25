@@ -1,11 +1,19 @@
-import { View } from 'react-native';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Text } from '@/shared/ui';
 
-export function StepHeading({ title, body }: { title: string; body: string }) {
+export function StepHeading({
+  title,
+  body,
+  style,
+}: {
+  title: string;
+  body: string;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View style={styles.heading}>
+    <View style={[styles.heading, style]}>
       <Text variant="display" accessibilityRole="header">
         {title}
       </Text>
@@ -16,6 +24,6 @@ export function StepHeading({ title, body }: { title: string; body: string }) {
   );
 }
 
-const styles = StyleSheet.create((theme) => ({
-  heading: { gap: 10, marginTop: theme.spacing.xs + 2 },
-}));
+const styles = StyleSheet.create({
+  heading: { gap: 10 },
+});

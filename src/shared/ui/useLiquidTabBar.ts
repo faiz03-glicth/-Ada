@@ -28,6 +28,9 @@ const sameSlot = (a: TabSlot | null, b: TabSlot) =>
  * - `headWidth`/`tailWidth`: the body's width at each end, sized to the destination tab's content.
  * - New targets retarget the springs from wherever they are, so rapid taps redirect instead of queueing.
  * - With Reduce Motion the liquid jumps and fades in; there is no stretch or magnification.
+ * - Until the first tab is measured the ends hold zeros: a pill on the bar's left edge, next to Home. The
+ *   liquid is hidden until it is first placed, and that placement jumps, so it is never drawn there or
+ *   animated in from there.
  */
 export function useLiquidTabBar({ active, slots: measured, onSelect }: Options) {
   const reducedMotion = useReduceMotion();
@@ -36,7 +39,7 @@ export function useLiquidTabBar({ active, slots: measured, onSelect }: Options) 
   const headWidth = useSharedValue(0);
   const tailWidth = useSharedValue(0);
   const engaged = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  const opacity = useSharedValue(0);
   const slots = useSharedValue<readonly TabSlot[]>([]);
   // Read by the drag gesture on the UI thread, so these are shared values rather than refs.
   const activeId = useSharedValue(active);
@@ -70,6 +73,12 @@ export function useLiquidTabBar({ active, slots: measured, onSelect }: Options) 
   const flowTo = useCallback(
     (slot: TabSlot) => {
       if (sameSlot(target.current, slot)) return;
+      if (target.current === null) {
+        // First placement: there is nothing to flow from yet, so appear on the tab.
+        place(slot);
+        opacity.set(1);
+        return;
+      }
       if (reducedMotion) {
         place(slot);
         opacity.set(0);
@@ -113,8 +122,9 @@ export function useLiquidTabBar({ active, slots: measured, onSelect }: Options) 
       target.current = activeSlot;
       return;
     }
-    // A new tab, or the same tab re-measured (e.g. its label weight): flow. Rotation/resize: just sit there.
-    if (changed || target.current?.center === activeSlot.center) flowTo(activeSlot);
+    // The first placement, a new tab, or the same tab re-measured (e.g. its label weight): flow (the first
+    // placement appears in place). Rotation/resize: just sit there.
+    if (!target.current || changed || target.current.center === activeSlot.center) flowTo(activeSlot);
     else place(activeSlot);
   }, [active, activeSlot, flowTo, place, releasedFromDrag]);
 

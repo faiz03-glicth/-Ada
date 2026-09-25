@@ -21,6 +21,7 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         animation: transitions.push,
+        animationDuration: transitions.fadeMs,
         contentStyle: { backgroundColor: theme.colors.canvas },
       }}
     >

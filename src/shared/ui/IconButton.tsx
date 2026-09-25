@@ -1,5 +1,7 @@
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { useStateTransition } from '@/theme';
+
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 import { PressableScale } from './PressableScale';
@@ -27,6 +29,8 @@ export function IconButton({
   testID,
 }: IconButtonProps) {
   const { theme } = useUnistyles();
+  // Disabled eases in and out like every other control (e.g. Back while a sign-in connects).
+  const fade = useStateTransition('opacity');
   return (
     <PressableScale
       testID={testID}
@@ -36,7 +40,7 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
-      style={[styles.base(plain), disabled && styles.disabled]}
+      style={[styles.base(plain), { opacity: disabled ? 0.45 : 1 }, fade]}
     >
       <Icon name={icon} size={plain ? 24 : 20} color={theme.colors.text} />
     </PressableScale>
@@ -52,5 +56,4 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center' as const,
     backgroundColor: plain ? 'transparent' : theme.glass ? theme.glass.strong : theme.colors.subtle,
   }),
-  disabled: { opacity: 0.45 },
 }));

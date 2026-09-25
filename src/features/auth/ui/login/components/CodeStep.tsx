@@ -1,7 +1,9 @@
 import { ActivityIndicator, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Button, OtpInput, Text } from '@/shared/ui';
+import { layoutMotion } from '@/theme';
 
 interface CodeStepProps {
   code: string;
@@ -38,12 +40,17 @@ export function CodeStep({
         autoFocus
       />
       {verifying && (
-        <View style={styles.verifying} accessibilityLiveRegion="polite">
+        <Animated.View
+          entering={layoutMotion.fadeUp}
+          exiting={layoutMotion.fade.out}
+          style={styles.verifying}
+          accessibilityLiveRegion="polite"
+        >
           <ActivityIndicator size="small" color={theme.colors.text2} />
           <Text variant="footnote" tone="secondary">
             Verifying…
           </Text>
-        </View>
+        </Animated.View>
       )}
       <Button
         label={resendLabel}

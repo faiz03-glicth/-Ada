@@ -1,6 +1,8 @@
 import type { AuthIntent } from '../domain/types';
 
-export type LoginStep = 'providers' | 'email' | 'code';
+/** The in-page steps, in order: moving to a later one is forward, to an earlier one is back. */
+export const LOGIN_STEPS = ['providers', 'email', 'code'] as const;
+export type LoginStep = (typeof LOGIN_STEPS)[number];
 
 export interface LoginHeading {
   title: string;

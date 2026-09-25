@@ -3,7 +3,7 @@ import { BackHandler } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { goBack, openLogin, openOnboarding, showOnboardingStep } from '@/shared/actions';
+import { goBack, openLogin, showOnboardingStep } from '@/shared/actions';
 import { createWrapper, renderWithApp } from '@test/providers';
 import { SCHEMES } from '@test/render';
 
@@ -26,18 +26,24 @@ describe('useOnboardingViewModel', () => {
     welcome.onHaveAccount();
     expect(jest.mocked(openLogin).mock.calls).toEqual([['new'], ['existing']]);
 
-    // Intensity → Setup changes step inside the same screen (the frame stays put).
+    // The steps are pages of one pager: Continue, Back and swipes all just set the step.
     const intensity = renderHook(() => useOnboardingViewModel(1), { wrapper: Wrapper });
     act(() => intensity.result.current.onPrimary());
-    expect(showOnboardingStep).toHaveBeenCalledWith(2);
-    expect(intensity.result.current.direction).toBe('forward');
-    intensity.result.current.onBack();
-    expect(goBack).toHaveBeenCalledWith(expect.any(Function));
+    expect(showOnboardingStep).toHaveBeenLastCalledWith(2);
+    act(() => intensity.result.current.onBack());
+    expect(showOnboardingStep).toHaveBeenLastCalledWith(0);
+    act(() => intensity.result.current.onPageChange(2));
+    expect(showOnboardingStep).toHaveBeenLastCalledWith(2);
+    expect(goBack).not.toHaveBeenCalled();
+  });
 
-    // With nothing to pop, Back replaces with the previous step.
-    const fallback = jest.mocked(goBack).mock.calls[0]?.[0] as () => void;
-    fallback();
-    expect(openOnboarding).toHaveBeenLastCalledWith(0, { replace: true });
+  it('Welcome has no Back, and Android back leaves as usual there', () => {
+    const spy = jest.spyOn(BackHandler, 'addEventListener');
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useOnboardingViewModel(0), { wrapper: Wrapper });
+    expect(result.current.showBack).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
   });
 
   it('Setup goes back to Intensity inside the screen, on screen and with Android back', () => {
@@ -51,7 +57,6 @@ describe('useOnboardingViewModel', () => {
 
     act(() => result.current.onBack());
     expect(showOnboardingStep).toHaveBeenLastCalledWith(1);
-    expect(result.current.direction).toBe('back');
     expect(goBack).not.toHaveBeenCalled();
 
     jest.mocked(showOnboardingStep).mockClear();
@@ -113,7 +118,16 @@ describe.each(SCHEMES)('OnboardingScreen in %s', (scheme) => {
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(showOnboardingStep).toHaveBeenCalledWith(2);
     fireEvent.press(screen.getByRole('button', { name: 'Back' }));
-    expect(goBack).toHaveBeenCalled();
+    expect(showOnboardingStep).toHaveBeenLastCalledWith(0);
+  });
+
+  it('shows the three steps as pages of one pager; only the current page reaches screen readers', () => {
+    renderWithApp(<OnboardingScreen step={0} />, { scheme });
+    expect(screen.getByRole('header', { name: 'See your consistency at a glance' })).toBeTruthy();
+    // The other pages are there to swipe to, but hidden from screen readers until they're current.
+    expect(screen.queryByRole('header', { name: 'What will you track?' })).toBeNull();
+    expect(screen.getByText('What will you track?', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText('Peak', { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('Setup: activity tiles, reminder toggle, Start tracking and no Skip', async () => {

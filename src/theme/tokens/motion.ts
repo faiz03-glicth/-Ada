@@ -6,83 +6,150 @@ import {
   type WithTimingConfig,
 } from 'react-native-reanimated';
 
+/*
+ * The single source of timing for the whole app. Presets (src/theme/motion) and components read these by
+ * meaning; no screen writes a raw duration, curve or distance. Nothing here knows about colour: light,
+ * dark and glass all move exactly the same way, only their materials differ.
+ */
+
 /**
  * The four curves of the app's motion language (cubic-bezier control points):
- * - standard: most state changes (colour, opacity, selection);
- * - emphasized: larger surfaces arriving (decelerates hard, feels deliberate);
- * - enter: things appearing (starts fast, settles gently);
+ * - standard: things changing or moving on screen (colour, selection, a page settling into place);
+ * - emphasis: something arriving decisively (a heatmap day revealing itself);
+ * - enter: things appearing (starts fast, settles softly);
  * - exit: things leaving (starts gently, speeds away).
  */
 const CURVES = {
   standard: [0.2, 0, 0, 1],
-  emphasized: [0.05, 0.7, 0.1, 1],
+  emphasis: [0.05, 0.7, 0.1, 1],
   enter: [0, 0, 0.2, 1],
   exit: [0.4, 0, 1, 1],
 } as const;
+export type Curve = keyof typeof CURVES;
 type Points = readonly [number, number, number, number];
 const curves = <T>(make: (...points: Points) => T) => ({
   standard: make(...CURVES.standard),
-  emphasized: make(...CURVES.emphasized),
+  emphasis: make(...CURVES.emphasis),
   enter: make(...CURVES.enter),
   exit: make(...CURVES.exit),
 });
+const ease = curves(Easing.bezier);
+
+/**
+ * How long things take (ms): quick for something leaving, fast for small changes (a border, a label),
+ * normal for a control changing state (selection, the active step), emphasis for whole-surface changes.
+ */
+const DURATION = { quick: 100, fast: 140, normal: 220, emphasis: 320 } as const;
+
+/** How far things travel (pt): a small nudge, a medium drift, a page-level arrival. */
+const DISTANCE = { small: 6, medium: 12, screen: 40 } as const;
 
 /** Gaps between staggered items (ms): tight (down a column), medium (across columns), list (list rows). */
 const STAGGER = { small: 15, medium: 40, list: 70 } as const;
 
+/** One frame at 60 Hz: the unit for "let the native side catch up" pauses. */
+const FRAME = 17;
+
 /**
- * One shared spring for presses, sheets, tabs and screen changes.
+ * One shared spring for presses and releases.
  * `ReduceMotion.System` makes Reanimated jump straight to the end value when Reduce Motion is on. The
  * app's own setting decides what "on" means (MotionRuntimeBridge), so it can override the phone.
  */
 const spring: WithSpringConfig = { damping: 16, stiffness: 220, mass: 1, reduceMotion: ReduceMotion.System };
 
-const timing = (duration: number): WithTimingConfig => ({ duration, reduceMotion: ReduceMotion.System });
+/** A Reanimated timing on one of the curves (`withTiming(…, motion.timing(…))`). */
+const timing = (duration: number, curve: Curve = 'standard'): WithTimingConfig => ({
+  duration,
+  easing: ease[curve],
+  reduceMotion: ReduceMotion.System,
+});
 
 export const motion = {
+  duration: DURATION,
+  distance: DISTANCE,
+  stagger: STAGGER,
+  /** The curves, for Reanimated timing animations (`withTiming(…, { easing })`) and layout keyframes. */
+  ease,
   spring,
   timing,
+
   /**
-   * The three speeds every state transition uses: fast for small changes (a border, a label colour),
-   * normal for a control changing state (selection, active tab), emphasized for whole-surface changes.
+   * pushForward / pushBack: one page of a screen replaced by the next (onboarding steps, login steps).
+   * The leaving page fades out quickly; the arriving page travels in from the side it's coming from and
+   * becomes visible once the old one is nearly gone (`revealAt`, % of `enterMs`), so two pages never
+   * show through each other.
    */
-  speed: { fast: 140, normal: 220, emphasized: 320 },
-  /** How far things travel (pt): a small nudge, a medium drift, a screen-level arrival. */
-  distance: { small: 6, medium: 28, screen: 40 },
-  stagger: STAGGER,
-  /** The curves, for Reanimated timing animations (`withTiming(…, { easing })`). */
-  ease: curves(Easing.bezier),
+  page: {
+    enterMs: DURATION.emphasis,
+    exitMs: DURATION.quick,
+    revealAt: 20,
+    distance: DISTANCE.screen,
+  },
   /**
-   * Theme changes fade through the new background: a veil in the new canvas colour covers the screen
-   * (exit curve), the theme is swapped underneath while it's fully covered, then the veil lifts (enter
-   * curve). `hold` gives the native theme swap two frames to land before the veil lifts.
+   * pager: pages side by side (onboarding). A swipe moves them with the finger and the platform snaps
+   * to the nearest page; Continue or Back slides a whole page (`slideMs`, standard curve).
    */
-  themeFade: { in: 110, hold: 34, out: 190 },
-  press: { scale: 0.96, subtleScale: 0.985 },
+  pager: { slideMs: DURATION.emphasis },
+  /** settle: something in a fixed frame moving to make room (a button gliding as the one below it goes). */
+  settle: { durationMs: DURATION.normal },
+  /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */
+  fadeUp: { durationMs: DURATION.normal, distance: DISTANCE.medium },
+  /** staggerIn: list rows rising into place one after another (the intensity levels). */
+  staggerIn: { durationMs: DURATION.normal, distance: DISTANCE.small, gapMs: STAGGER.list },
   /**
-   * The heatmap reveal: each day appears as an empty cell (fading in from 55%, a small scale-in), then its
-   * colour fills in; `appearShare` is the part of `durationMs` spent appearing. When each cell starts is
-   * heroCellDelay's job, stepping by columns and rows.
+   * heatmapReveal: each day fades in and grows to full size in its own colour, sweeping across the
+   * columns and down the rows. Opacity and scale only: it reads the same on a light card as on a dark one.
    */
-  heroStagger: {
+  heatmapReveal: {
     columnMs: STAGGER.medium,
     rowMs: STAGGER.small,
     durationMs: 500,
-    fromScale: 0.55,
-    appearShare: 0.45,
+    fromScale: 0.6,
+    /** The wave variant: diagonal by diagonal, top-left to bottom-right. */
+    waveStepMs: STAGGER.list,
   },
+  /**
+   * hold: press and hold to charge something up (the login mark). Held, it tenses (`squeeze`) and trembles
+   * more and more (up to `trembleDeg`, one shiver every `tremblePeriodMs`) while haptic ticks come faster
+   * and stronger (a tick every `tickGapMs.from` → `tickGapMs.to`). After `chargeMs` it lets go: it flips
+   * (`flipMs`, edge-on halfway) and a fresh heatmap waves in. Let go early and it simply settles back.
+   */
+  hold: {
+    chargeMs: 900,
+    squeeze: 0.9,
+    trembleDeg: 4,
+    tremblePeriodMs: 50,
+    tickGapMs: { from: 160, to: 45 },
+    flipMs: 560,
+    perspective: 600,
+  },
+  /**
+   * selection: an item's icon answers the choice: it swells a little when chosen and dips a little when
+   * released (`rise`), then settles back to its resting size (`settle`). Interruptible either way.
+   */
+  selection: { select: 1.08, deselect: 0.94, riseMs: DURATION.quick, settleMs: DURATION.normal },
+  press: { scale: 0.96, subtleScale: 0.985 },
   pulse: { scale: 1.45, durationMs: 600, repeats: 2 },
   /**
-   * Screen transitions: pushed screens slide in from the right on both platforms, tabs cross-fade
-   * (calm, no sideways jump), and moving between the onboarding/login flow and the app cross-fades.
+   * themeTransition: a change of theme fades through the screen's own background. A veil in the current
+   * canvas colour covers the app (`coverMs`: the content fades away, nothing brightens or darkens yet),
+   * the theme is swapped underneath, then the veil lifts (`revealMs`) and the new look emerges, the
+   * background brightening or deepening gradually. `holdMs` gives the native theme swap two frames to land.
    */
-  navigation: { push: 'ios_from_right', groupSwitch: 'fade', tabs: 'fade' },
+  themeTransition: { coverMs: DURATION.quick, holdMs: 2 * FRAME, revealMs: DURATION.normal },
   /**
-   * With Reduce Motion: no sliding; screens and flow changes cross-fade. Tabs keep their cross-fade on
-   * purpose: a dissolve is the recommended reduced-motion transition, and switching the tab navigator to
-   * 'none' at runtime changes its native screen container (iOS), remounting every tab and blanking pages.
+   * Screen transitions between routes: pushed screens slide in from the right on both platforms, tabs
+   * cross-fade (calm, no sideways jump), and moving between the onboarding/login flow and the app
+   * cross-fades. With Reduce Motion nothing slides: every route change cross-fades. Tabs keep their
+   * cross-fade on purpose: switching the tab navigator to 'none' at runtime changes its native screen
+   * container (iOS), remounting every tab and blanking pages. `fadeMs` sets iOS cross-fades (whose
+   * platform default, 500ms, drags).
    */
-  reducedNavigation: { push: 'fade', groupSwitch: 'fade', tabs: 'fade' },
+  navigation: {
+    full: { push: 'ios_from_right', groupSwitch: 'fade', tabs: 'fade' },
+    reduced: { push: 'fade', groupSwitch: 'fade', tabs: 'fade' },
+    fadeMs: DURATION.emphasis,
+  },
   /**
    * The liquid tab bar: ONE liquid body with a leading head and a trailing tail. The head springs to the
    * new tab (a slight overshoot reads as the liquid compressing on arrival); the tail follows a little
@@ -165,8 +232,9 @@ export const motion = {
 } as const;
 
 /**
- * The same curves for Reanimated CSS transitions (`transitionTimingFunction`). Kept OUT of `motion` on
- * purpose: these are class instances, which can't be copied to the UI thread, and worklets capture parts
- * of `motion` (everything inside it must stay plain data; see motion.test).
+ * The same curves for Reanimated CSS animations and transitions (`animationTimingFunction`,
+ * `transitionTimingFunction`). Kept OUT of `motion` on purpose: these are class instances, which can't be
+ * copied to the UI thread, and worklets capture parts of `motion` (everything inside it must stay plain
+ * data; see motion.test).
  */
 export const cssEase = curves(cubicBezier);

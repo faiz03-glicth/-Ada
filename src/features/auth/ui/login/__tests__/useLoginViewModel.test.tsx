@@ -155,6 +155,16 @@ describe('useLoginViewModel', () => {
     expect(useAuthStore.getState().status).toBe('guest');
   });
 
+  it('a new account goes through setup even on a phone where onboarding was finished before', async () => {
+    // e.g. finished once, logged out, then "Get started" again: the saved flag must not skip the steps.
+    useAuthStore.setState({ hasCompletedOnboarding: true });
+    const { result } = await setup('new');
+    await act(async () => result.current.onSkip());
+    expect(openOnboarding).toHaveBeenCalledWith(1, { replace: true });
+    // Cleared before the session starts, so the route guard keeps the person in onboarding.
+    expect(useAuthStore.getState()).toMatchObject({ status: 'guest', hasCompletedOnboarding: false });
+  });
+
   it('returning people finish onboarding (so the guard opens Home) with a welcome toast', async () => {
     const repositories = createFakeRepositories();
     repositories.auth.signInWithApple.mockResolvedValueOnce(

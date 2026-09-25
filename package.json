@@ -84,5 +84,11 @@
     "routes:types": "node scripts/generate-route-types.js",
     "format:check": "prettier --check ."
   },
+  "reanimated": {
+    "staticFeatureFlags": {
+      "FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS": false,
+      "USE_COMMIT_HOOK_ONLY_FOR_REACT_COMMITS": false
+    }
+  },
   "private": true
 }

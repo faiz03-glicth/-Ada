@@ -21,6 +21,7 @@ export default function AuthLayout() {
       screenOptions={{
         headerShown: false,
         animation: transitions.push,
+        animationDuration: transitions.fadeMs,
         // Replacing Login with onboarding step 1 after sign-in slides forward like a push.
         animationTypeForReplace: 'push',
         contentStyle: { backgroundColor: theme.colors.canvas },

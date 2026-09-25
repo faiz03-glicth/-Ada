@@ -4,7 +4,7 @@ import Animated from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatCellState } from '@/features/heatmap/domain/grid';
-import { useMotion, type HeatLevel, type HeatRevealStyle } from '@/theme';
+import { useMotion, type HeatLevel, type HeatmapRevealStyle } from '@/theme';
 
 export interface HeatCellProps {
   level: HeatLevel;
@@ -17,7 +17,7 @@ export interface HeatCellProps {
    * This cell's part of the heatmap reveal, from the motion system (Heatmap provides it, already
    * resolved against Reduce Motion, so a grid of cells doesn't each subscribe to the setting).
    */
-  appear?: HeatRevealStyle | null;
+  appear?: HeatmapRevealStyle | null;
   /** Hairline outline so a very pale swatch (level 0) still reads as a cell on a light card. */
   outlined?: boolean;
   onPress?: () => void;
