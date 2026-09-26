@@ -59,6 +59,23 @@ describe('createAuthApi', () => {
     expect(verifyOtp).toHaveBeenCalledWith({ email: 'a@b.co', token: '000000', type: 'email' });
   });
 
+  it('reports a sign-out only for SIGNED_OUT, never for an empty session after a failed refresh', () => {
+    let emit: (event: string, session: { user: typeof supabaseUser } | null) => void = () => undefined;
+    const onAuthStateChange = jest.fn((listener: typeof emit) => {
+      emit = listener;
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
+    });
+    const callback = jest.fn();
+    createAuthApi(fakeAuth({ onAuthStateChange })).onAuthStateChange(callback);
+
+    emit('INITIAL_SESSION', null);
+    expect(callback).not.toHaveBeenCalled();
+    emit('TOKEN_REFRESHED', { user: supabaseUser });
+    expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'user-1' }));
+    emit('SIGNED_OUT', null);
+    expect(callback).toHaveBeenLastCalledWith(null);
+  });
+
   it('signs out this device only', async () => {
     const signOut = jest.fn(async () => ({ error: null }));
     await createAuthApi(fakeAuth({ signOut })).signOut();

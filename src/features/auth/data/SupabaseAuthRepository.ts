@@ -21,7 +21,16 @@ export interface SupabaseAuthRepositoryDeps {
   appMeta: AppMetaDao;
   guestData: GuestDataDao;
   now: () => string;
+  /** Resolves after `ms` (injected so tests control the restore budget). */
+  delay: (ms: number) => Promise<void>;
 }
+
+/**
+ * How long launch waits for Supabase before a returning user continues with their local profile.
+ * An expired access token (anyone who last opened the app over an hour ago) is refreshed over the network
+ * before Supabase answers, and offline it retries for ~25 s, all while the splash is up.
+ */
+export const SESSION_RESTORE_BUDGET_MS = 1000;
 
 const guestUser = (id: string): AuthUser => ({
   id,
@@ -76,8 +85,27 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async restoreSession(): Promise<AuthUser | null> {
+    const session = this.deps.api.getSessionUser();
+    const overBudget = await Promise.race([
+      session.then(
+        () => false,
+        () => false,
+      ),
+      this.deps.delay(SESSION_RESTORE_BUDGET_MS).then(() => true),
+    ]);
+    if (overBudget) {
+      const localUser = await this.lastSignedInUser();
+      if (localUser) {
+        // Supabase keeps restoring in the background; onAuthStateChange delivers the refreshed user, or
+        // signs out if the session turns out to have ended.
+        session
+          .then((user) => (user ? this.deps.profiles.saveFromAuth(user) : undefined))
+          .catch(() => undefined);
+        return localUser;
+      }
+    }
     try {
-      const user = await this.deps.api.getSessionUser();
+      const user = await session;
       if (user) {
         await this.deps.profiles.saveFromAuth(user);
         return user;

@@ -22,7 +22,13 @@ const VIEW_ONLY = [
   { group: ['@/features/*/data/*', '@/core/*'], message: 'Views never reach the Model layer directly.' },
 ];
 
-const restrict = (patterns) => ['error', { patterns }];
+/** Metro doesn't tree-shake, so the package root would bundle every icon. */
+const ICON_BARREL = {
+  name: 'lucide-react-native',
+  message: "Import each icon from 'lucide-react-native/icons/<name>' (see src/shared/ui/icons.ts).",
+};
+
+const restrict = (patterns) => ['error', { paths: [ICON_BARREL], patterns }];
 
 module.exports = defineConfig([
   expoConfig,

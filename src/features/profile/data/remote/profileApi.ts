@@ -22,7 +22,7 @@ export type RemoteProfile = z.infer<typeof remoteProfileSchema>;
 /** Data source: Supabase `public.profiles` only (RLS limits every call to the signed-in user's row). */
 export interface ProfileApi {
   fetch(id: string): Promise<RemoteProfile | null>;
-  updateDisplayName(id: string, displayName: string): Promise<void>;
+  updateDisplayName(id: string, displayName: string | null): Promise<void>;
 }
 
 function toAppError(error: { message: string }): AppError {

@@ -21,7 +21,18 @@ function memoryAppMeta(): AppMetaDao & { data: Map<AppMetaKey, string> } {
   };
 }
 
+/** A promise the test settles by hand (e.g. a Supabase call still in flight). */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 function setup() {
+  // The restore budget: never runs out unless a test says so.
+  const budget = deferred<void>();
   const api: jest.Mocked<AuthApi> = {
     signInWithIdToken: mockFn<AuthApi['signInWithIdToken']>(async (provider) => testUser({ provider })),
     requestEmailOtp: mockFn<AuthApi['requestEmailOtp']>(async () => undefined),
@@ -62,8 +73,10 @@ function setup() {
     appMeta,
     guestData,
     now: () => 'NOW',
+    delay: () => budget.promise,
   });
-  return { repo, api, apple, google, crypto, guestData, profiles, appMeta };
+  const runOutBudget = () => budget.resolve();
+  return { repo, api, apple, google, crypto, guestData, profiles, appMeta, runOutBudget };
 }
 
 describe('SupabaseAuthRepository', () => {
@@ -188,6 +201,36 @@ describe('SupabaseAuthRepository', () => {
       appMeta.data.set('guest_id', 'g-1');
       appMeta.data.set('guest_active', '1');
       await expect(repo.restoreSession()).resolves.toMatchObject({ id: 'g-1', provider: 'guest' });
+    });
+
+    it('continues with the local profile when Supabase is still refreshing past the budget', async () => {
+      const { repo, api, profiles, appMeta, runOutBudget } = setup();
+      appMeta.data.set('last_user_id', 'user-1');
+      profiles.getLocal.mockResolvedValueOnce(testProfile({ provider: 'google' }));
+      const slow = deferred<ReturnType<typeof testUser> | null>();
+      api.getSessionUser.mockReturnValueOnce(slow.promise);
+
+      const restored = repo.restoreSession();
+      runOutBudget();
+      await expect(restored).resolves.toMatchObject({ id: 'user-1', provider: 'google' });
+      expect(profiles.saveFromAuth).not.toHaveBeenCalled();
+
+      // The refresh lands later: the local profile is updated from it, as on a fast launch.
+      slow.resolve(testUser({ provider: 'google' }));
+      await slow.promise;
+      await Promise.resolve();
+      expect(profiles.saveFromAuth).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }));
+    });
+
+    it('keeps waiting past the budget when there is no local user to continue with', async () => {
+      const { repo, api, runOutBudget } = setup();
+      const slow = deferred<ReturnType<typeof testUser> | null>();
+      api.getSessionUser.mockReturnValueOnce(slow.promise);
+
+      const restored = repo.restoreSession();
+      runOutBudget();
+      slow.resolve(testUser());
+      await expect(restored).resolves.toMatchObject({ id: 'user-1' });
     });
   });
 

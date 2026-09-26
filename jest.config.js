@@ -13,6 +13,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@test/(.*)$': '<rootDir>/test/$1',
+    '^lucide-react-native/icons/.*$': '<rootDir>/test/mocks/lucideIcon.tsx',
   },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/core/db/migrations/**', '!src/types/**'],
   // text-summary feeds the CI coverage badge; cobertura feeds GitLab's merge request diff coverage.

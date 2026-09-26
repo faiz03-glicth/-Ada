@@ -1,32 +1,33 @@
-import {
-  Bell,
-  Book,
-  ChartColumn,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  Code,
-  Droplet,
-  Dumbbell,
-  Flower2,
-  Footprints,
-  House,
-  ListChecks,
-  Lock,
-  LogOut,
-  Mail,
-  Palette,
-  Plus,
-  Shield,
-  Sparkles,
-  Upload,
-  User,
-  Volume2,
-  type LucideIcon,
-} from 'lucide-react-native';
+// One file per icon: Metro doesn't tree-shake, so importing from the package root bundles all ~1,900 icons.
+import Bell from 'lucide-react-native/icons/bell';
+import Book from 'lucide-react-native/icons/book';
+import ChartColumn from 'lucide-react-native/icons/chart-column';
+import Check from 'lucide-react-native/icons/check';
+import ChevronLeft from 'lucide-react-native/icons/chevron-left';
+import ChevronRight from 'lucide-react-native/icons/chevron-right';
+import CircleAlert from 'lucide-react-native/icons/circle-alert';
+import Code from 'lucide-react-native/icons/code';
+import Droplet from 'lucide-react-native/icons/droplet';
+import Dumbbell from 'lucide-react-native/icons/dumbbell';
+import Flower2 from 'lucide-react-native/icons/flower-2';
+import Footprints from 'lucide-react-native/icons/footprints';
+import House from 'lucide-react-native/icons/house';
+import ListChecks from 'lucide-react-native/icons/list-checks';
+import Lock from 'lucide-react-native/icons/lock';
+import LogOut from 'lucide-react-native/icons/log-out';
+import Mail from 'lucide-react-native/icons/mail';
+import Palette from 'lucide-react-native/icons/palette';
+import Plus from 'lucide-react-native/icons/plus';
+import Shield from 'lucide-react-native/icons/shield';
+import Sparkles from 'lucide-react-native/icons/sparkles';
+import Upload from 'lucide-react-native/icons/upload';
+import User from 'lucide-react-native/icons/user';
+import Volume2 from 'lucide-react-native/icons/volume-2';
 
-/** The icons the app uses, by name. Named imports keep the bundle small. */
+/** Every lucide icon has this type (taken from one, so the package root is never imported). */
+type LucideIcon = typeof Bell;
+
+/** The icons the app uses, by name. */
 export const ICONS = {
   bell: Bell,
   book: Book,

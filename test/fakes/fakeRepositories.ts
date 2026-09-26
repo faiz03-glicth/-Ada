@@ -62,6 +62,7 @@ export function createFakeProfileRepository(): FakeProfileRepository {
     ),
     refreshFromRemote: mockFn<Prof['refreshFromRemote']>(async () => null),
     updateDisplayName: mockFn<Prof['updateDisplayName']>(async () => undefined),
+    pushPendingEdits: mockFn<Prof['pushPendingEdits']>(async () => undefined),
   };
 }
 

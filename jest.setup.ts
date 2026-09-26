@@ -35,29 +35,7 @@ jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
 
-jest.mock('expo-glass-effect', () => ({
-  isLiquidGlassAvailable: () => false,
-  isGlassEffectAPIAvailable: () => false,
-}));
-
 jest.mock('expo-apple-authentication', () => require('./test/mocks/appleAuthentication'));
-
-// Lucide ships ESM-only .mjs; icons carry no behaviour, so each becomes an empty view named after the icon.
-jest.mock('lucide-react-native', () => {
-  const { createElement } = require('react');
-  const { View } = require('react-native');
-  const cache = new Map<string, unknown>();
-  return new Proxy(
-    { __esModule: true },
-    {
-      get: (target: Record<string, unknown>, name: string) => {
-        if (name in target) return target[name];
-        if (!cache.has(name)) cache.set(name, () => createElement(View, { testID: `icon-${name}` }));
-        return cache.get(name);
-      },
-    },
-  );
-});
 
 jest.mock('sonner-native', () => ({
   toast: Object.assign(jest.fn(), {

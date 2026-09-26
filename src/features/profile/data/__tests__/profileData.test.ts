@@ -72,9 +72,10 @@ describe('profile persistence (in-memory SQLite)', () => {
     });
   });
 
-  it('local edits stay dirty offline and win over the server until synced', async () => {
+  it('local edits stay dirty offline and win over the server until pushed', async () => {
     await repo.saveFromAuth(testUser());
-    api.updateDisplayName.mockRejectedValueOnce(new AppError('Network', 'offline'));
+    // Offline for the edit and for the push the refresh tries first.
+    api.updateDisplayName.mockRejectedValue(new AppError('Network', 'offline'));
     await repo.updateDisplayName('user-1', 'Offline Edit');
     expect(await createProfileDao(db).getById('user-1')).toMatchObject({
       displayName: 'Offline Edit',
@@ -90,6 +91,75 @@ describe('profile persistence (in-memory SQLite)', () => {
     expect(await createProfileDao(db).getById('user-1')).toMatchObject({
       displayName: 'New Name',
       dirty: false,
+    });
+  });
+
+  describe('pushing edits saved offline', () => {
+    const offline = () => new AppError('Network', 'offline');
+    const dao = () => createProfileDao(db);
+
+    async function editOffline(name = 'Offline Edit') {
+      await repo.saveFromAuth(testUser());
+      api.updateDisplayName.mockRejectedValueOnce(offline());
+      await repo.updateDisplayName('user-1', name);
+      api.updateDisplayName.mockClear();
+    }
+
+    it('sends the edit once back online and marks the row clean', async () => {
+      await editOffline();
+      await repo.pushPendingEdits('user-1');
+      expect(api.updateDisplayName).toHaveBeenCalledWith('user-1', 'Offline Edit');
+      expect(await dao().getById('user-1')).toMatchObject({ displayName: 'Offline Edit', dirty: false });
+    });
+
+    it('still offline: keeps the row dirty without failing', async () => {
+      await editOffline();
+      api.updateDisplayName.mockRejectedValueOnce(offline());
+      await expect(repo.pushPendingEdits('user-1')).resolves.toBeUndefined();
+      expect(await dao().getById('user-1')).toMatchObject({ dirty: true });
+    });
+
+    it('a refresh pushes first, so the server copy it reads back takes over', async () => {
+      await editOffline();
+      api.fetch.mockResolvedValueOnce(remote({ display_name: 'Offline Edit' }));
+      await expect(repo.refreshFromRemote('user-1')).resolves.toMatchObject({ displayName: 'Offline Edit' });
+      expect(api.updateDisplayName).toHaveBeenCalledWith('user-1', 'Offline Edit');
+      expect(await dao().getById('user-1')).toMatchObject({ username: 'faiz', dirty: false });
+    });
+
+    it('an edit made while the push is in flight stays dirty for the next push', async () => {
+      await editOffline('First');
+      api.updateDisplayName.mockImplementationOnce(async () => {
+        await dao().setDisplayName('user-1', 'Second', '2026-09-24T11:00:00.000Z', true);
+      });
+      await repo.pushPendingEdits('user-1');
+      expect(await dao().getById('user-1')).toMatchObject({ displayName: 'Second', dirty: true });
+
+      await repo.pushPendingEdits('user-1');
+      expect(api.updateDisplayName).toHaveBeenLastCalledWith('user-1', 'Second');
+      expect(await dao().getById('user-1')).toMatchObject({ dirty: false });
+    });
+
+    it('a reconnect and a return to the app at once send one request', async () => {
+      await editOffline();
+      await Promise.all([repo.pushPendingEdits('user-1'), repo.pushPendingEdits('user-1')]);
+      expect(api.updateDisplayName).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing without pending edits, and never pushes a guest profile', async () => {
+      await repo.saveFromAuth(testUser());
+      await repo.pushPendingEdits('user-1');
+      await repo.ensureGuest('guest-1');
+      await dao().setDisplayName('guest-1', 'Guest Name', '2026-09-24T11:00:00.000Z', true);
+      await repo.pushPendingEdits('guest-1');
+      expect(api.updateDisplayName).not.toHaveBeenCalled();
+    });
+
+    it('a real server failure rejects and keeps the edit for later', async () => {
+      await editOffline();
+      api.updateDisplayName.mockRejectedValueOnce(new AppError('Unknown', 'Profile request failed'));
+      await expect(repo.pushPendingEdits('user-1')).rejects.toThrow('Profile request failed');
+      expect(await dao().getById('user-1')).toMatchObject({ dirty: true });
     });
   });
 

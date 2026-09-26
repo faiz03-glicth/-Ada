@@ -51,6 +51,7 @@ export function createRepositories(): Repositories {
     appMeta: createAppMetaDao(db),
     guestData: createGuestDataDao(db),
     now: nowIso,
+    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
   return { auth, profile };

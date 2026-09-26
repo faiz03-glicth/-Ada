@@ -8,6 +8,13 @@ import type { Profile } from '../domain/Profile';
 export const profileQueryKey = (userId: string) => ['profile', userId] as const;
 
 /**
+ * How long a server refresh of the profile counts as fresh. Only the person changes it (here, or on
+ * another of their devices), so returning to the app within this window doesn't call Supabase again.
+ * Signing in invalidates it at once.
+ */
+export const REMOTE_PROFILE_STALE_MS = 10 * 60_000;
+
+/**
  * Local-first: returns the SQLite row immediately, then (online, signed-in users only) refreshes it
  * from Supabase, writes the result back to SQLite and updates the cached value.
  */
@@ -32,6 +39,7 @@ export function useProfile(user: AuthUser | null) {
     },
     enabled: user !== null && user.provider !== 'guest',
     networkMode: 'online',
+    staleTime: REMOTE_PROFILE_STALE_MS,
   });
 
   return local;

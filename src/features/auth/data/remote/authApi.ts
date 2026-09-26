@@ -73,8 +73,11 @@ export function createAuthApi(auth: SupabaseAuth): AuthApi {
       await run(() => auth.signOut({ scope: 'local' }));
     },
     onAuthStateChange(callback) {
-      const { data } = auth.onAuthStateChange((_event, session) => {
-        callback(session ? mapAuthUser(session.user) : null);
+      const { data } = auth.onAuthStateChange((event, session) => {
+        if (session) callback(mapAuthUser(session.user));
+        // Only SIGNED_OUT ends a session. INITIAL_SESSION also arrives empty when an expired token
+        // couldn't be refreshed (offline), and the person must stay signed in on their local profile.
+        else if (event === 'SIGNED_OUT') callback(null);
       });
       return () => data.subscription.unsubscribe();
     },
