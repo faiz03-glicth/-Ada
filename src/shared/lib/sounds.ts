@@ -56,7 +56,15 @@ function playerFor(name: SoundName): AudioPlayer | null {
   if (!lib) return null;
   const player = lib.createAudioPlayer(SOURCES[name]);
   player.volume = VOLUME;
-  // Kept for the app's lifetime: each effect is tiny and replayed often.
+  // Kept for the app's lifetime: each effect is tiny and replayed often. Unless its file fails to load
+  // (a development build streams it from the dev server, which may be restarting): a failed player never
+  // plays again, so it is released and the next play loads the file afresh.
+  const subscription = player.addListener('playbackStatusUpdate', (status) => {
+    if (!status.error) return;
+    subscription.remove();
+    if (players.get(name) === player) players.delete(name);
+    player.remove();
+  });
   players.set(name, player);
   return player;
 }

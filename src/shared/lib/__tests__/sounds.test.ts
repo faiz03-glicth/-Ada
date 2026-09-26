@@ -5,7 +5,18 @@
 type Sounds = typeof import('../sounds').sounds;
 
 function loadSounds({ nativeModule, enabled = true }: { nativeModule: boolean; enabled?: boolean }) {
-  const player = { volume: 1, seekTo: jest.fn(async () => undefined), play: jest.fn() };
+  type Status = { error: string | null };
+  const player = {
+    volume: 1,
+    seekTo: jest.fn(async () => undefined),
+    play: jest.fn(),
+    remove: jest.fn(),
+    addListener: jest.fn((_event: 'playbackStatusUpdate', _listener: (status: Status) => void) => ({
+      remove: jest.fn(),
+    })),
+  };
+  /** A status update from the native player, to the listener the sounds service registered last. */
+  const emitStatus = (status: Status) => player.addListener.mock.calls.at(-1)?.[1](status);
   const audio = {
     createAudioPlayer: jest.fn(() => player),
     setAudioModeAsync: jest.fn(async () => undefined),
@@ -19,12 +30,15 @@ function loadSounds({ nativeModule, enabled = true }: { nativeModule: boolean; e
     });
     sounds = require('../sounds').sounds;
   });
-  return { sounds, audio, player };
+  return { sounds, audio, player, emitStatus };
 }
 
 afterEach(() => {
   jest.dontMock('expo');
   jest.dontMock('expo-audio');
+  // `sounds` requires expo-audio lazily (at its first play), outside isolateModules: without a reset, every
+  // later test would get the first test's mock.
+  jest.resetModules();
 });
 
 describe('sounds', () => {
@@ -54,6 +68,21 @@ describe('sounds', () => {
     const { sounds, player } = loadSounds({ nativeModule: true, enabled: false });
     sounds.play('logoFlip');
     expect(player.play).not.toHaveBeenCalled();
+  });
+
+  it('load an effect again after its file failed to load, instead of staying silent', () => {
+    const { sounds, audio, player, emitStatus } = loadSounds({ nativeModule: true });
+    sounds.preload('logoFlip');
+    emitStatus({ error: null });
+    expect(player.remove).not.toHaveBeenCalled();
+
+    // E.g. the dev server was restarting when the file was requested.
+    emitStatus({ error: 'Source error' });
+    expect(player.remove).toHaveBeenCalledTimes(1);
+
+    sounds.play('logoFlip');
+    expect(audio.createAudioPlayer).toHaveBeenCalledTimes(2);
+    expect(player.play).toHaveBeenCalledTimes(1);
   });
 
   it('are feedback only: a failing player is ignored', () => {
