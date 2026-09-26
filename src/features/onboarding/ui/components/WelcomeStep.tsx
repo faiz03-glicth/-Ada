@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -12,7 +13,16 @@ const MAX_CELL = 20;
 /** Screen side padding (24 × 2) + card padding (8 × 2) + card border. */
 const HORIZONTAL_CHROME = 48 + 16 + 2;
 
-export function WelcomeStep({ grid, title, body }: { grid: HeatGrid; title: string; body: string }) {
+/** A pager page: memoised, so the other pages changing (or the pager landing) never re-renders the heatmap. */
+export const WelcomeStep = memo(function WelcomeStep({
+  grid,
+  title,
+  body,
+}: {
+  grid: HeatGrid;
+  title: string;
+  body: string;
+}) {
   const { width } = useWindowDimensions();
   // 20pt cells as designed, shrinking only as much as a narrow phone needs.
   const cell = Math.min(
@@ -31,7 +41,7 @@ export function WelcomeStep({ grid, title, body }: { grid: HeatGrid; title: stri
       <StepHeading title={title} body={body} style={styles.heading} />
     </>
   );
-}
+});
 
 const styles = StyleSheet.create((theme) => ({
   card: { paddingVertical: 18, paddingHorizontal: 8 },

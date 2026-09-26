@@ -90,8 +90,11 @@ export const motion = {
    * to the nearest page; Continue or Back slides a whole page (`slideMs`, standard curve). A page has
    * landed once it's within `landWithin` of a page's width of its spot, finger lifted: close enough to
    * look settled, early enough for its clack to be heard as it settles (the snap's last points crawl).
+   * A touch on a page waits `pressDelayMs` before it's a press: a swipe claims the touch well within that,
+   * so swiping from a tile or the Welcome heatmap shows no press and fires no haptic. A tap is unaffected
+   * (a release inside the delay is still a press, in and out).
    */
-  pager: { slideMs: DURATION.emphasis, landWithin: 0.02 },
+  pager: { slideMs: DURATION.emphasis, landWithin: 0.02, pressDelayMs: DURATION.quick },
   /** settle: something in a fixed frame moving to make room (a button gliding as the one below it goes). */
   settle: { durationMs: DURATION.normal },
   /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */

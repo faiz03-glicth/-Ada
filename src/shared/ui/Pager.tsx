@@ -17,6 +17,8 @@ import { haptics } from '@/shared/lib/haptics';
 import { sounds } from '@/shared/lib/sounds';
 import { motion } from '@/theme';
 
+import { PressDelay } from './pressDelay';
+
 const slide = motion.timing(motion.pager.slideMs);
 const { landWithin } = motion.pager;
 
@@ -37,7 +39,10 @@ export interface PagerProps {
   count: number;
   /** The page to show. Changing it (a button, Back) slides there. */
   index: number;
-  /** A swipe made another page the main one (it's reported as soon as it covers most of the screen). */
+  /**
+   * A swipe landed on another page. Reported only once it has settled, never mid-drag: the logical page
+   * doesn't flip back and forth under the finger, and nothing re-renders while the pages are moving.
+   */
   onIndexChange: (index: number) => void;
   /** Written by the pager, in pages (1.5 = halfway from the second to the third), for things that follow it. */
   progress: SharedValue<number>;
@@ -52,21 +57,37 @@ export interface PagerProps {
  * the platform snaps to the nearest page; setting `index` slides a whole page on the motion system's curve.
  * A finger always wins: touching the pager mid-slide stops the slide where it is. Each page that settles
  * into place is set down like a block: a wooden clack and a soft tick. Only the current page is exposed to
- * screen readers. Nothing re-renders per frame: `progress` is a UI-thread value.
+ * screen readers.
+ *
+ * While the pages move, nothing runs on the JS thread: the platform scroll view follows the finger and
+ * snaps on release (velocity and distance decide), and `progress` is a UI-thread value for whatever
+ * follows the pages. The logical page changes once a page has landed. Presses inside the pages wait a
+ * moment (`pager.pressDelayMs`) so that a swipe starting on a button or tile is just a swipe: no press
+ * feedback, no haptic.
  */
 export function Pager({ count, index, onIndexChange, progress, inset, renderPage }: PagerProps) {
   const { width } = useWindowDimensions();
   const ref = useAnimatedRef<Animated.ScrollView>();
   // Where a driven slide is taking the pager (x offset); only ever animated, never touched by a swipe.
   const target = useSharedValue(index * width);
-  // The last page the pager reported, on both threads (a swipe reports; the JS copy tells the two apart).
+  // Where the pages start. Never changed after mounting: a new `contentOffset` makes the native scroll view
+  // jump there on the spot (Android and iOS alike), even under a finger mid-drag.
+  const [startOffset] = useState(() => ({ x: index * width, y: 0 }));
+  // The page navigation knows about (JS): landing on it again, e.g. at the end of a button slide, isn't news.
   const reported = useRef(index);
-  const reportedOnUI = useSharedValue(index);
+  const shownWidth = useRef(width);
   // The page it last settled on, and whether a finger is on it (a held page hasn't landed yet).
   const landedOnUI = useSharedValue(index);
   const dragging = useSharedValue(false);
+  // Pages that have been the main one. A page counts as seen as soon as it covers most of the screen, so
+  // its entrance plays while it slides in; that's once per page, the only JS work a swipe does mid-way.
   const [seen, setSeen] = useState<ReadonlySet<number>>(() => new Set([index]));
+  const seenOnUI = useSharedValue<number[]>([index]);
   if (!seen.has(index)) setSeen(new Set(seen).add(index));
+  const see = useCallback(
+    (page: number) => setSeen((pages) => (pages.has(page) ? pages : new Set(pages).add(page))),
+    [],
+  );
 
   // A page settling into place: one block set down.
   const setDown = useCallback(() => {
@@ -74,30 +95,34 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
     haptics.soft();
   }, []);
 
-  const report = useCallback(
+  // A page landed: set it down (sound, haptic) and, if it's a different page, tell navigation.
+  const land = useCallback(
     (page: number) => {
+      setDown();
+      if (page === reported.current) return;
       reported.current = page;
       onIndexChange(page);
     },
-    [onIndexChange],
+    [onIndexChange, setDown],
   );
 
   useEffect(() => sounds.preload('pageClack'), []);
 
   const onScroll = useAnimatedScrollHandler({
+    // Every frame of a move: one number for the things that follow the pages, nothing else.
     onScroll: (event) => {
       const position = event.contentOffset.x / width;
       progress.set(position);
       const nearest = Math.min(count - 1, Math.max(0, Math.round(position)));
-      if (nearest !== reportedOnUI.get()) {
-        reportedOnUI.set(nearest);
-        scheduleOnRN(report, nearest);
+      if (!seenOnUI.get().includes(nearest)) {
+        seenOnUI.set([...seenOnUI.get(), nearest]);
+        scheduleOnRN(see, nearest);
       }
       if (dragging.get()) return;
       const page = landedPage(position, landedOnUI.get(), count);
       if (page !== null) {
         landedOnUI.set(page);
-        scheduleOnRN(setDown);
+        scheduleOnRN(land, page);
       }
     },
     onBeginDrag: () => {
@@ -110,7 +135,7 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
       const page = landedPage(event.contentOffset.x / width, landedOnUI.get(), count);
       if (page !== null) {
         landedOnUI.set(page);
-        scheduleOnRN(setDown);
+        scheduleOnRN(land, page);
       }
     },
   });
@@ -124,15 +149,27 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
   );
 
   useEffect(() => {
+    const to = index * width;
+    // The window changed size (split screen, a fold): put the page back in its place.
+    if (width !== shownWidth.current) {
+      shownWidth.current = width;
+      reported.current = index;
+      scheduleOnUI(() => {
+        cancelAnimation(target);
+        target.set(to);
+        scrollTo(ref, to, 0, false);
+      });
+      return;
+    }
     // The pager itself got there (a swipe): nothing to drive.
     if (index === reported.current) return;
-    const to = index * width;
+    reported.current = index;
     scheduleOnUI(() => {
       // Start from wherever the pages are now, so a new slide never jumps.
       target.set(progress.get() * width);
       target.set(withTiming(to, slide));
     });
-  }, [index, width, progress, target]);
+  }, [index, width, progress, target, ref]);
 
   return (
     <Animated.ScrollView
@@ -142,20 +179,22 @@ export function Pager({ count, index, onIndexChange, progress, inset, renderPage
       showsHorizontalScrollIndicator={false}
       scrollEventThrottle={16}
       decelerationRate="fast"
-      contentOffset={{ x: index * width, y: 0 }}
+      contentOffset={startOffset}
       onScroll={onScroll}
       style={styles.pager(inset)}
     >
-      {Array.from({ length: count }, (_, page) => (
-        <View
-          key={page}
-          style={styles.page(width, inset)}
-          importantForAccessibility={page === index ? 'auto' : 'no-hide-descendants'}
-          accessibilityElementsHidden={page !== index}
-        >
-          {renderPage(page, seen.has(page))}
-        </View>
-      ))}
+      <PressDelay value={motion.pager.pressDelayMs}>
+        {Array.from({ length: count }, (_, page) => (
+          <View
+            key={page}
+            style={styles.page(width, inset)}
+            importantForAccessibility={page === index ? 'auto' : 'no-hide-descendants'}
+            accessibilityElementsHidden={page !== index}
+          >
+            {renderPage(page, seen.has(page))}
+          </View>
+        ))}
+      </PressDelay>
     </Animated.ScrollView>
   );
 }

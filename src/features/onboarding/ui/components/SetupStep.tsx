@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import type { Activity } from '@/features/activities/domain/Activity';
 import { ActivityGrid, Card, ListRow } from '@/shared/ui';
 
@@ -12,7 +14,8 @@ interface SetupStepProps {
   reminder: { title: string; description: string; enabled: boolean; onToggle: (enabled: boolean) => void };
 }
 
-export function SetupStep({
+/** A pager page: memoised, so it re-renders only for its own changes (a tile, the reminder). */
+export const SetupStep = memo(function SetupStep({
   title,
   body,
   activities,
@@ -43,4 +46,4 @@ export function SetupStep({
       </Card>
     </>
   );
-}
+});

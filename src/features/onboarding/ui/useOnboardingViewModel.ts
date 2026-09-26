@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler } from 'react-native';
 
 import { SEED_ACTIVITIES } from '@/features/activities/config/seedActivities';
@@ -53,6 +53,18 @@ export function useOnboardingViewModel(step: OnboardingStep) {
     }
   };
 
+  // Handed to the pages, so kept the same between renders: a page only re-renders when its own data changes.
+  const onPageChange = useCallback((page: number) => showOnboardingStep(asStep(page)), []);
+  const onToggleActivity = useCallback(
+    (id: string) => {
+      haptics.selection();
+      toggleDraftActivity(id);
+    },
+    [toggleDraftActivity],
+  );
+  // Saved now; the reminder itself is scheduled in Phase 6.
+  const onToggleReminder = useCallback((enabled: boolean) => setDraftReminder(enabled), [setDraftReminder]);
+
   const onPrimary = {
     0: () => openLogin('new'),
     1: () => showOnboardingStep(2),
@@ -80,14 +92,10 @@ export function useOnboardingViewModel(step: OnboardingStep) {
     onSkip: () => void finish(),
     onHaveAccount: () => openLogin('existing'),
     onBack: back,
-    /** A swipe made another page the current one. */
-    onPageChange: (page: number) => showOnboardingStep(asStep(page)),
-    onToggleActivity: (id: string) => {
-      haptics.selection();
-      toggleDraftActivity(id);
-    },
-    // Saved now; the reminder itself is scheduled in Phase 6.
-    onToggleReminder: (enabled: boolean) => setDraftReminder(enabled),
+    /** A swipe landed on another page. */
+    onPageChange,
+    onToggleActivity,
+    onToggleReminder,
   };
 }
 

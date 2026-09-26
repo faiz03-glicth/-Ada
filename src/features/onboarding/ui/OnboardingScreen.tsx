@@ -1,12 +1,13 @@
+import { useCallback, useMemo } from 'react';
 import Animated, { LayoutAnimationConfig, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { OnboardingStep } from '@/shared/actions';
-import { Button, ContentSwap, IntensityGuide, NavBar, PageDots, Pager, Screen } from '@/shared/ui';
+import { Button, ContentSwap, NavBar, PageDots, Pager, Screen } from '@/shared/ui';
 import { layoutMotion } from '@/theme';
 
+import { IntensityStep } from './components/IntensityStep';
 import { SetupStep } from './components/SetupStep';
-import { StepHeading } from './components/StepHeading';
 import { WelcomeStep } from './components/WelcomeStep';
 import { useOnboardingViewModel } from './useOnboardingViewModel';
 
@@ -15,6 +16,9 @@ import { useOnboardingViewModel } from './useOnboardingViewModel';
  * frame stays put around them: the dots follow the finger, the button's label cross-fades, Back and Skip
  * fade in and out, and the buttons glide when "I already have an account" comes and goes. Arriving from
  * another screen (e.g. after signing in), the screen transition itself is the entrance.
+ *
+ * The step changes when a swiped page lands, not while it moves; then only what depends on the step
+ * re-renders (the frame). The pages are memoised: each re-renders for its own data only.
  */
 export function OnboardingScreen({ step }: { step: OnboardingStep }) {
   const vm = useOnboardingViewModel(step);
@@ -22,6 +26,30 @@ export function OnboardingScreen({ step }: { step: OnboardingStep }) {
   // Where the pager is, in pages: the pager writes it on the UI thread, the dots read it.
   const progress = useSharedValue<number>(vm.step);
   const [welcome, intensity, setup] = vm.pages;
+  const { heroGrid, activities, selectedActivityIds, reminderCopy, reminderEnabled } = vm;
+  const { onToggleActivity, onToggleReminder } = vm;
+  const reminder = useMemo(
+    () => ({ ...reminderCopy, enabled: reminderEnabled, onToggle: onToggleReminder }),
+    [reminderCopy, reminderEnabled, onToggleReminder],
+  );
+  const renderPage = useCallback(
+    (page: number, seen: boolean) =>
+      page === 0 ? (
+        <WelcomeStep grid={heroGrid} title={welcome.title} body={welcome.body} />
+      ) : page === 1 ? (
+        <IntensityStep title={intensity.title} body={intensity.body} revealed={seen} />
+      ) : (
+        <SetupStep
+          title={setup.title}
+          body={setup.body}
+          activities={activities}
+          selectedIds={selectedActivityIds}
+          onToggleActivity={onToggleActivity}
+          reminder={reminder}
+        />
+      ),
+    [heroGrid, welcome, intensity, setup, activities, selectedActivityIds, onToggleActivity, reminder],
+  );
 
   return (
     <Screen scroll inset="wide" testID={`onboarding-step-${vm.step}`} contentStyle={styles.content}>
@@ -49,25 +77,7 @@ export function OnboardingScreen({ step }: { step: OnboardingStep }) {
         onIndexChange={vm.onPageChange}
         progress={progress}
         inset={theme.spacing.xxl}
-        renderPage={(page, seen) =>
-          page === 0 ? (
-            <WelcomeStep grid={vm.heroGrid} title={welcome.title} body={welcome.body} />
-          ) : page === 1 ? (
-            <>
-              <StepHeading title={intensity.title} body={intensity.body} />
-              <IntensityGuide layout="list" cellSize={30} animateIn revealed={seen} />
-            </>
-          ) : (
-            <SetupStep
-              title={setup.title}
-              body={setup.body}
-              activities={vm.activities}
-              selectedIds={vm.selectedActivityIds}
-              onToggleActivity={vm.onToggleActivity}
-              reminder={{ ...vm.reminderCopy, enabled: vm.reminderEnabled, onToggle: vm.onToggleReminder }}
-            />
-          )
-        }
+        renderPage={renderPage}
       />
 
       <LayoutAnimationConfig skipEntering>

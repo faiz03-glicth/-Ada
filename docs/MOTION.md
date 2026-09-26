@@ -24,7 +24,8 @@ src/shared/ui/                    primitives that consume the presets
   ScreenTransition                a screen's page changes (pushForward / pushBack from the step order)
   ContentSwap                     content replaced in place (labels, loading, a Skip that goes away)
   SelectableTile                  press + selected surface/border + selection response
-  PressableScale                  press, for every tappable control
+  PressableScale                  press, for every tappable control (waits pager.pressDelayMs in a pager)
+  Pager / PageDots                onboarding's swipeable pages and the dots that follow them
   Heatmap / HeatCell / LogoMark   heatmapReveal
   Button / IconButton / SsoButton press, eased disabled state, loading
 ```
@@ -72,21 +73,43 @@ src/shared/ui/                    primitives that consume the presets
 - **Only swaps animate.** `ContentSwap` and `ScreenTransition` skip entering on first render and skip
   exiting when their whole screen leaves.
 - **No per-frame React state.** Every animation runs on the UI thread (Reanimated values, CSS animations).
+- **Continuous motion is transform and opacity.** Anything that moves every frame of a gesture (the page
+  dots) never animates a layout prop: `width`/`height`/margins would re-layout on every frame.
+
+## Swipeable pages (Pager)
+
+A swipe has two phases, and neither runs JavaScript per frame:
+
+- **Gesture**: the platform scroll view follows the finger 1:1. The pager writes one UI-thread value,
+  `progress` (in pages), which the dots read; nothing else happens while the finger is down (except a
+  page's one-time entrance starting as it first covers most of the screen).
+- **Settle**: on release the platform snaps to a page by velocity and distance (a short or slow drag snaps
+  back). Once a page is within `pager.landWithin` of its spot it has **landed**: its clack and tick play,
+  and only then does the logical step change (navigation param, label, Skip/Back, the ghost button).
+
+Rules that keep it smooth:
+
+- The logical page never changes mid-drag. Changing it re-renders the screen and starts the frame's own
+  animations; doing that under the finger (and again on every reversal across the midpoint) is jank.
+- The scroll view's `contentOffset` is set once at mount and never changed: a new `contentOffset` makes
+  the native view jump there on the spot, on Android and iOS, even mid-drag. Continue/Back slide with
+  `scrollTo` from wherever the pages are, on `pager.slideMs`; a finger takes over from a slide at once.
+- Pages are memoised with stable callbacks: landing re-renders the frame, not the heatmap or the tiles.
+- Presses on a page wait `pager.pressDelayMs` (`PressDelay` context). A touch that becomes a swipe in
+  that time never presses: no squeeze, no hold tremble, no haptic. A tap is unaffected.
 - `Keyframe` builders mutate themselves: presets are built once and never re-configured by callers.
 
 ## Transitions
 
-| From → To                      | How                                                              |
-| ------------------------------ | ---------------------------------------------------------------- |
-| Welcome → Login                | route push                                                       |
-| Login → Welcome                | route pop                                                        |
-| Login → Intensity (new)        | route replace, animated as a push                                |
-| Login → Home (returning)       | group cross-fade + "Signed in" toast                             |
-| Intensity → Setup              | in-screen pushForward (dots grow, label cross-fades, Skip fades) |
-| Setup → Intensity              | in-screen pushBack (on-screen Back and Android back)             |
-| Intensity → Welcome            | route pop (replace-as-pop after a relaunch mid-setup)            |
-| Setup / Skip → Home            | group cross-fade + "You're all set" toast                        |
-| Login providers ↔ email ↔ code | in-screen pushForward / pushBack                                 |
+| From → To                      | How                                                          |
+| ------------------------------ | ------------------------------------------------------------ |
+| Welcome → Login                | route push                                                   |
+| Login → Welcome                | route pop                                                    |
+| Login → Intensity (new)        | route replace, animated as a push                            |
+| Login → Home (returning)       | group cross-fade + "Signed in" toast                         |
+| Welcome ↔ Intensity ↔ Setup    | pager: swipe, or Continue / Back / Android back slide a page |
+| Setup / Skip → Home            | group cross-fade + "You're all set" toast                    |
+| Login providers ↔ email ↔ code | in-screen pushForward / pushBack                             |
 
 ## Audit
 
@@ -97,7 +120,7 @@ login tests). **Not yet observed on a device**: timing and feel still need a pas
 | --------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Welcome                           | PASS    | Route push/pop; hero `heatmapReveal`; shared press.                                                                                             |
 | Heatmap reveal                    | PASS    | Theme-free keyframes; identical in light and dark (tested); off with Reduce Motion; never replays.                                              |
-| Progress dots                     | PASS    | Width/colour state transition in-screen. Arriving from Login, the dots come with the screen.                                                    |
+| Progress dots                     | PASS    | Follow the pager's position with transforms only (no per-frame layout); ease on their own without a pager.                                      |
 | Get started                       | PASS    | Press → route push.                                                                                                                             |
 | I already have an account         | PASS    | Press → route push (Login is forward in the flow, so push rather than pushBack).                                                                |
 | Create account / Welcome back     | PASS    | Route push; mark arrives with `heatmapReveal`; steps use `ScreenTransition`.                                                                    |

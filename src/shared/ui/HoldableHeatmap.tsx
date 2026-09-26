@@ -16,6 +16,7 @@ import {
 } from '@/theme';
 
 import { Heatmap, type HeatmapProps } from './Heatmap';
+import { usePressDelay } from './pressDelay';
 
 const { heatmapRebuild: rebuild, hold: holdTokens } = motion;
 
@@ -61,6 +62,8 @@ export function HoldableHeatmap(props: Omit<HeatmapProps, 'cellMotion'>) {
   const rows = Math.max(0, ...grid.columns.map((column) => column.length));
   const diagonals = columns + rows - 1;
   const motionSystem = useMotion();
+  // On a pager page: a swipe that starts on the heatmap doesn't start a hold (no tremble, no haptic).
+  const pressDelay = usePressDelay();
   const [phase, setPhase] = useState<Phase>('entrance');
   // A rebuild is playing (presses wait), and everything it has scheduled (timers, haptic sequences).
   const busy = useRef(false);
@@ -126,6 +129,7 @@ export function HoldableHeatmap(props: Omit<HeatmapProps, 'cellMotion'>) {
       testID="holdable-heatmap"
       accessible={false}
       importantForAccessibility="no-hide-descendants"
+      unstable_pressDelay={pressDelay || undefined}
       onPressIn={() => {
         if (busy.current || !hold.start()) return;
         stopRamp.current = haptics.ramp({ durationMs: holdTokens.chargeMs, gapMs: holdTokens.tickGapMs });

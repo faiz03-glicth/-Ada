@@ -5,6 +5,8 @@ import Animated from 'react-native-reanimated';
 
 import { motion, usePressMotion, type PressFeedback } from '@/theme';
 
+import { usePressDelay } from './pressDelay';
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
@@ -16,7 +18,10 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   feedback?: PressFeedback;
 }
 
-/** Every tappable control's press feedback, from the motion system (see usePressMotion). */
+/**
+ * Every tappable control's press feedback, from the motion system (see usePressMotion). Inside something
+ * swipeable (a pager) the press waits a moment, so a swipe that starts on the control doesn't press it.
+ */
 export function PressableScale({
   scaleTo = motion.press.scale,
   feedback = 'scale',
@@ -26,9 +31,11 @@ export function PressableScale({
   ...rest
 }: PressableScaleProps) {
   const press = usePressMotion(feedback, scaleTo);
+  const pressDelay = usePressDelay();
 
   return (
     <AnimatedPressable
+      unstable_pressDelay={pressDelay || undefined}
       {...rest}
       style={[style, press.style]}
       onPressIn={(event: GestureResponderEvent) => {
