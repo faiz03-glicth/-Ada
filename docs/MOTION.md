@@ -157,8 +157,53 @@ login tests). **Not yet observed on a device**: timing and feel still need a pas
 | Undo / delete                     | PASS    | Undo closes its toast; `light` haptic. Delete asks first (`warning`); failures use `error`.                                  |
 | Heatmap months / calendar periods | PASS    | `ScreenTransition` (pushForward / pushBack by where the period sits in time).                                                |
 | Just-checked-in day               | PASS    | `pulse` on that one cell, cleared after it plays (a later remount won't replay it).                                          |
+| Month → date wheel                | PASS    | The whole month is one target (subtle press); its days open in a sheet, on the date wheel.                                   |
+| Date wheel                        | PASS    | `dateFocus`: swell and fade follow the scroll position on the UI thread; native snap (velocity-aware).                       |
 | Charts                            | PASS    | Bar heights and meter widths ease (`normal`) on range changes; instant with Reduce Motion.                                   |
 | Toast                             | PARTIAL | sonner-native's own entrance (follows Reduce Motion, not the tokens). Nearly opaque, since there's no live blur behind it.   |
+
+### Heatmap date selection
+
+A heatmap day is too small to aim at, so days are no longer buttons: **month → date wheel → Day details**.
+
+- **MonthSelector** (`HeatmapMonths`): each month, name and every week, is one press target with a little
+  slop around it; months that haven't started don't answer. Screen readers hear "September 2026, 12
+  check-ins".
+- **DatePicker** (`DateWheel`, in the `day-picker` sheet): every day of the month that has happened, weekday
+  above its block and date below. The day under the centre pointer is the chosen one. The finger moves the
+  dates directly; on release the platform snaps the nearest date to the centre (a flick carries on through
+  several). Tapping another date glides it to the centre; tapping the centred one (or Open) continues.
+- **DateFocus** (`useWheelFocus`, `motion.datePicker`): a date swells up to 1.14× as it nears the centre
+  (smoothstep over the last slot, so it's continuous) and far dates fade to 45%. Reduce Motion keeps the
+  fade and the green ring but drops the swell.
+- **Feedback**: the chosen index is the only trigger. Each date that reaches the centre gives one
+  `selection` haptic and one `dateTick` (a 46 ms wooden knock at half the other effects' level, built by
+  `build-sounds.py`), at most one tick every 35 ms. The player is created once and reused. The wheel's own
+  opening placement is silent.
+- **State**: the picker's view model holds the chosen day (the wheel reports changes; the scroll position
+  only decides which day is centred). It opens on the day last chosen in that month (this session), else
+  today, else the month's latest check-in, else its last day.
+- **Navigation**: Open replaces the picker with Day details, unchanged; Back returns to the heatmap.
+
+| Screen           | Requirement                                              | Result                                                                              |
+| ---------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Heatmap          | Month is selectable without precise cell tapping         | PASS                                                                                |
+| Heatmap          | Individual tiny cells are no longer primary date targets | PASS                                                                                |
+| Heatmap          | Three visible months remain visually clear               | PASS                                                                                |
+| Month selection  | Month selection has a comfortable hit area               | PASS                                                                                |
+| Month transition | Feels spatially connected                                | PARTIAL: press on the month, then the platform sheet rises; no shared-element morph |
+| Date picker      | Horizontal scrolling is smooth                           | PASS                                                                                |
+| Date picker      | Day labels above blocks, dates below                     | PASS                                                                                |
+| Date picker      | Center date is selected                                  | PASS                                                                                |
+| Date picker      | Selected date magnifies subtly and continuously          | PASS                                                                                |
+| Date picker      | One haptic and one wooden tick per date crossing         | PASS (device: one tick per crossing; very fast flicks can merge ticks)              |
+| Date picker      | Feedback is not triggered continuously                   | PASS                                                                                |
+| Date picker      | Release snaps cleanly; reverse and rapid drags work      | PASS                                                                                |
+| Date detail      | Existing detail structure is preserved                   | PASS                                                                                |
+| Light / Dark     | Same interaction, only colours differ                    | PASS                                                                                |
+| Glass            | Same interaction, only materials differ                  | PASS                                                                                |
+| Reduced Motion   | Functional interaction remains                           | PASS                                                                                |
+| Accessibility    | Selected date is semantically exposed                    | PASS (one adjustable control: swipe up/down, double-tap to open)                    |
 
 Haptics live in `shared/lib/haptics.ts`: components ask for a meaning (`selection`, `light`, `medium`,
 `success`, `warning`, `error`); the service honours the person's Haptic feedback setting (Appearance),
