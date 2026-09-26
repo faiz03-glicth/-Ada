@@ -1,14 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { goBack } from '@/shared/actions';
-import { parseOptionalId } from '@/shared/actions/params';
-import { PhasePlaceholder } from '@/shared/ui';
+import { CheckInSheet } from '@/features/checkins/ui/CheckInSheet';
+import { parseISODate } from '@/shared/actions/params';
 
-/** Form sheet: create (optionally ?date=) or edit (?logId=) a check-in. */
+/** Form sheet: a new check-in, optionally for a given day (?date=). */
 export default function CheckInRoute() {
-  const { logId } = useLocalSearchParams<{ date?: string; logId?: string }>();
-  const editing = parseOptionalId(logId) !== undefined;
-  return (
-    <PhasePlaceholder title={editing ? 'Edit check-in' : 'Check in'} phase={2} onBack={() => goBack()} />
-  );
+  const { date } = useLocalSearchParams<{ date?: string }>();
+  return <CheckInSheet date={parseISODate(date)} />;
 }

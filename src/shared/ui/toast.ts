@@ -15,7 +15,16 @@ export function showSuccess({ title, sub, undo }: ToastMessage): void {
   toast.success(title, {
     id: title,
     description: sub,
-    action: undo ? { label: 'Undo', onClick: undo } : undefined,
+    // Undo also closes the toast: what it said ("now has 5 check-ins") is no longer true.
+    action: undo
+      ? {
+          label: 'Undo',
+          onClick: () => {
+            toast.dismiss(title);
+            undo();
+          },
+        }
+      : undefined,
     duration: undo ? 5000 : 3500,
   });
 }

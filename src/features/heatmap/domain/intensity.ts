@@ -16,7 +16,14 @@ export function intensityLevel(checkIns: number): IntensityLevel {
   return 4;
 }
 
-export const INTENSITY_LEVELS: readonly IntensityLevelInfo[] = [
+/** One entry per level, in order (indexable by an IntensityLevel). */
+export const INTENSITY_LEVELS: readonly [
+  IntensityLevelInfo,
+  IntensityLevelInfo,
+  IntensityLevelInfo,
+  IntensityLevelInfo,
+  IntensityLevelInfo,
+] = [
   { level: 0, name: 'No activity', rangeLabel: '0 check-ins' },
   { level: 1, name: 'Light', rangeLabel: '1 check-in' },
   { level: 2, name: 'Moderate', rangeLabel: '2–3 check-ins' },

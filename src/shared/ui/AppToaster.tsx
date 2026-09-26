@@ -32,7 +32,14 @@ export function AppToaster() {
         style: { backgroundColor: background, borderRadius: theme.glass ? 22 : 16, borderWidth: 0 },
         titleStyle: { color: foreground, fontFamily: theme.fonts.semibold, fontSize: 14 },
         descriptionStyle: { color: foreground, opacity: 0.75, fontFamily: theme.fonts.regular, fontSize: 13 },
-        actionButtonStyle: { backgroundColor: 'transparent' },
+        // Undo: plain text in the heatmap's mid green (as in the prototype), legible on the inverted toast.
+        actionButtonStyle: {
+          backgroundColor: 'transparent',
+          borderWidth: 0,
+          paddingHorizontal: 0,
+          paddingVertical: 4,
+        },
+        actionButtonTextStyle: { color: theme.heat[2], fontFamily: theme.fonts.semibold, fontSize: 14 },
       }}
     />
   );

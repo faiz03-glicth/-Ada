@@ -115,6 +115,8 @@ export interface Theme {
   colors: SemanticColors;
   activity: Record<ActivityColorKey, string>;
   heat: HeatSteps;
+  /** Text printed on each heat colour (the month view's day numbers): the most legible ink per step. */
+  heatInk: HeatSteps;
   brand: BrandColors;
   elevation: Elevation;
   /** Present only when the Liquid Glass style is active. */

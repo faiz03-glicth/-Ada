@@ -4,6 +4,7 @@ import type { AuthUser } from '@/features/auth/domain/types';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
 import type { Profile } from '@/features/profile/domain/Profile';
 
+import { createFakeCheckInRepository, type FakeCheckInRepository } from './fakeCheckIns';
 import { mockFn } from './mockFn';
 
 export const testUser = (overrides: Partial<AuthUser> = {}): AuthUser => ({
@@ -66,9 +67,12 @@ export function createFakeProfileRepository(): FakeProfileRepository {
   };
 }
 
-export function createFakeRepositories(): Repositories & {
+export function createFakeRepositories(
+  checkIns: FakeCheckInRepository = createFakeCheckInRepository(),
+): Repositories & {
   auth: FakeAuthRepository;
   profile: FakeProfileRepository;
+  checkIns: FakeCheckInRepository;
 } {
-  return { auth: createFakeAuthRepository(), profile: createFakeProfileRepository() };
+  return { auth: createFakeAuthRepository(), profile: createFakeProfileRepository(), checkIns };
 }

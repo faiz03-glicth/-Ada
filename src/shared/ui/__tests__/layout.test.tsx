@@ -258,9 +258,14 @@ describe('toast helpers', () => {
     expect(toast.success).toHaveBeenLastCalledWith('Checked in', {
       id: 'Checked in',
       description: undefined,
-      action: { label: 'Undo', onClick: undo },
+      action: { label: 'Undo', onClick: expect.any(Function) },
       duration: 5000,
     });
+    // Undo runs and closes the toast (what it said is no longer true).
+    const action = jest.mocked(toast.success).mock.lastCall?.[1]?.action as { onClick: () => void };
+    action.onClick();
+    expect(undo).toHaveBeenCalled();
+    expect(toast.dismiss).toHaveBeenCalledWith('Checked in');
     expect(toast.info).toHaveBeenCalledWith('Coming soon', {
       id: 'Coming soon',
       description: undefined,

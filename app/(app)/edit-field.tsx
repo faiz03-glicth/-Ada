@@ -1,20 +1,19 @@
 import { useLocalSearchParams } from 'expo-router';
 
+import { EditNameSheet } from '@/features/settings/ui/account/EditNameSheet';
 import { goBack } from '@/shared/actions';
 import { parseEditableField } from '@/shared/actions/params';
-import type { EditableField } from '@/shared/actions/types';
-import { PhasePlaceholder } from '@/shared/ui';
+import { SheetLayout, Text } from '@/shared/ui';
 
-const TITLES: Record<EditableField, string> = {
-  name: 'Name',
-  username: 'Username',
-  email: 'Email',
-  timezone: 'Time zone',
-};
-
-/** Form sheet: one editor for name, username, email and time zone. */
+/** Form sheet: edit one profile field. Only the name is editable today; others explain why not. */
 export default function EditFieldRoute() {
   const { field } = useLocalSearchParams<{ field: string }>();
-  const parsed = parseEditableField(field);
-  return <PhasePlaceholder title={parsed ? TITLES[parsed] : 'Edit'} phase={4} onBack={() => goBack()} />;
+  if (parseEditableField(field) === 'name') return <EditNameSheet />;
+  return (
+    <SheetLayout title="Not editable yet" onClose={() => goBack()}>
+      <Text variant="sub" tone="secondary">
+        This comes from how you sign in, so it can&apos;t be changed in Streak yet.
+      </Text>
+    </SheetLayout>
+  );
 }

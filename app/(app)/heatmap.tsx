@@ -1,18 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { goBack } from '@/shared/actions';
+import { CalendarScreen } from '@/features/calendar/ui/CalendarScreen';
 import { parseHeatmapOptions } from '@/shared/actions/params';
-import { PhasePlaceholder } from '@/shared/ui';
 
+/** The full heatmap: ?view=year|month&year=&month= (the screen keeps its own place after opening). */
 export default function HeatmapRoute() {
   const params = useLocalSearchParams<{ view?: string; year?: string; month?: string }>();
-  const { view } = parseHeatmapOptions(params);
-  return (
-    <PhasePlaceholder
-      title={view === 'month' ? 'Month' : 'Year'}
-      phase={2}
-      onBack={() => goBack()}
-      body="The full-year and month heatmaps arrive in Phase 2."
-    />
-  );
+  return <CalendarScreen options={parseHeatmapOptions(params)} />;
 }

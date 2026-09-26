@@ -19,9 +19,15 @@ export interface TabBarProps {
   active: TabId;
   onTabPress: (tab: TabId) => void;
   onFabPress: () => void;
+  /** Holding +: a shortcut (repeat the last check-in). A hold never also counts as a tap. */
+  onFabLongPress?: () => void;
 }
 
 const FAB = 64;
+const FAB_ACTIONS = [
+  { name: 'activate' as const },
+  { name: 'longpress' as const, label: 'Repeat last check-in' },
+];
 // Read into a constant: a worklet that touched `motion` itself would copy the whole token object.
 const { footerStretch } = motion.liquid;
 
@@ -31,7 +37,7 @@ const { footerStretch } = motion.liquid;
  * animation can never hold it up. Everything is measured (useTabBarLayout), so the liquid always wraps
  * its tab's icon and label, on any width, orientation or font size; the bar sits above the safe area.
  */
-export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
+export function TabBar({ items, active, onTabPress, onFabPress, onFabLongPress }: TabBarProps) {
   const { theme } = useUnistyles();
   const half = Math.ceil(items.length / 2);
   const ids = useMemo(() => items.map((item) => item.id), [items]);
@@ -104,9 +110,17 @@ export function TabBar({ items, active, onTabPress, onFabPress }: TabBarProps) {
             <PressableScale
               testID="fab-check-in"
               onPress={onFabPress}
+              onLongPress={onFabLongPress}
+              delayLongPress={450}
               feedback="liquid"
               accessibilityRole="button"
               accessibilityLabel="New check-in"
+              accessibilityHint={onFabLongPress ? 'Hold to repeat your last check-in' : undefined}
+              accessibilityActions={onFabLongPress ? FAB_ACTIONS : undefined}
+              onAccessibilityAction={(event) => {
+                if (event.nativeEvent.actionName === 'longpress') onFabLongPress?.();
+                else onFabPress();
+              }}
               style={styles.fab}
             >
               <Icon name="plus" size={30} strokeWidth={2.4} color={theme.colors.onAccent} />

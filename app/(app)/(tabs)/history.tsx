@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from '@/shared/ui';
+import { HistoryScreen } from '@/features/history/ui/HistoryScreen';
 
 export default function HistoryRoute() {
-  return <PhasePlaceholder title="History" phase={3} withTabBar />;
+  return <HistoryScreen />;
 }

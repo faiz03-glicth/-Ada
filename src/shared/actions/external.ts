@@ -22,12 +22,12 @@ export function openHelpCenter(): Promise<void> {
   return openInAppBrowser(links.helpCenter());
 }
 
-/** Phase 4 (About): opens the mail composer. */
-export async function sendFeedback(): Promise<void> {
-  showInfo({ title: 'Coming in Phase 4', sub: 'Sending feedback arrives with the About section.' });
+/** About → Send feedback: the help center, where feedback reaches the team. */
+export function sendFeedback(): Promise<void> {
+  return openHelpCenter();
 }
 
-/** Phase 4 (About): opens the store review prompt. */
+/** About → Rate: there's no store listing to rate yet, and it says so rather than pretending. */
 export async function rateApp(): Promise<void> {
-  showInfo({ title: 'Coming in Phase 4', sub: 'Rating Streak arrives with the About section.' });
+  showInfo({ title: 'Rating isn’t available yet', sub: 'You can rate Streak once it’s in the app stores.' });
 }

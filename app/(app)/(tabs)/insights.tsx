@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from '@/shared/ui';
+import { InsightsScreen } from '@/features/insights/ui/InsightsScreen';
 
 export default function InsightsRoute() {
-  return <PhasePlaceholder title="Insights" phase={3} withTabBar />;
+  return <InsightsScreen />;
 }

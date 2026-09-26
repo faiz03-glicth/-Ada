@@ -25,7 +25,9 @@ export const glassMaterials: Record<ColorScheme, GlassMaterial> = {
     // Equals rgba(30,154,82,0.13) over the tab bar.
     pill: '#DBEEE2',
     sheet: { tint: 'rgba(248,251,248,0.80)', blur: 30 },
-    toast: { background: 'rgba(16,23,19,0.74)', foreground: '#F6F7F5', blur: 30 },
+    // Nearly opaque: there's no live blur behind toasts (it costs every frame), so a more see-through
+    // toast would let the screen's text show through its own.
+    toast: { background: 'rgba(16,23,19,0.95)', foreground: '#F6F7F5', blur: 30 },
     canvasBase: '#F1F5F1',
     heatEmpty: 'rgba(16,40,26,0.075)',
   },
@@ -49,7 +51,7 @@ export const glassMaterials: Record<ColorScheme, GlassMaterial> = {
     // Equals rgba(61,214,140,0.18) over the tab bar (opaque, see light).
     pill: '#1B3C2B',
     sheet: { tint: 'rgba(24,30,26,0.82)', blur: 30 },
-    toast: { background: 'rgba(237,242,238,0.82)', foreground: '#0D100E', blur: 30 },
+    toast: { background: 'rgba(237,242,238,0.96)', foreground: '#0D100E', blur: 30 },
     canvasBase: '#060907',
     heatEmpty: 'rgba(255,255,255,0.08)',
   },

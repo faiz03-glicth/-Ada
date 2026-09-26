@@ -22,7 +22,16 @@ export interface HeatCellProps {
   outlined?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
+  /**
+   * For grids that handle touch themselves (one tap handler per month, see HeatmapMonths): the cell is
+   * still its own button for screen readers, and activating it reports `dayKey`. Stable across renders,
+   * so the cell stays memoised.
+   */
+  onActivate?: (dayKey: string) => void;
+  dayKey?: string;
 }
+
+const ACTIVATE = [{ name: 'activate' as const }];
 
 /** Only cells that pulse subscribe to the motion system. */
 function PulsingCell({ style }: { style: StyleProp<ViewStyle> }) {
@@ -41,6 +50,8 @@ export const HeatCell = memo(function HeatCell({
   outlined = false,
   onPress,
   accessibilityLabel,
+  onActivate,
+  dayKey,
 }: HeatCellProps) {
   const style = [
     styles.cell(level, size, radius ?? Math.max(2, Math.round(size / 3.5)), state),
@@ -54,6 +65,21 @@ export const HeatCell = memo(function HeatCell({
     <View style={style} />
   );
 
+  if (onActivate && dayKey && !onPress) {
+    return (
+      <View
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ selected: state === 'selected' }}
+        accessibilityActions={ACTIVATE}
+        onAccessibilityAction={() => onActivate(dayKey)}
+        testID={`day-${dayKey}`}
+      >
+        {cell}
+      </View>
+    );
+  }
   if (!onPress) return cell;
   return (
     <Pressable

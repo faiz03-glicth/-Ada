@@ -1,14 +1,13 @@
-import { useLocalSearchParams } from 'expo-router';
-
 import { goBack } from '@/shared/actions';
-import { parseOptionalId } from '@/shared/actions/params';
-import { PhasePlaceholder } from '@/shared/ui';
+import { SheetLayout, Text } from '@/shared/ui';
 
-/** Form sheet: create (no id) or edit (?id=) an activity. */
+/** Form sheet: custom activities aren't available yet; the six built-in activities are the whole list. */
 export default function ActivityEditorRoute() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const editing = parseOptionalId(id) !== undefined;
   return (
-    <PhasePlaceholder title={editing ? 'Edit activity' : 'New activity'} phase={4} onBack={() => goBack()} />
+    <SheetLayout title="Custom activities are coming" onClose={() => goBack()}>
+      <Text variant="sub" tone="secondary">
+        For now, Streak has six activities. Every one counts toward the same heatmap.
+      </Text>
+    </SheetLayout>
   );
 }

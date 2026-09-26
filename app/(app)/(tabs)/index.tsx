@@ -1,12 +1,5 @@
-import { PhasePlaceholder } from '@/shared/ui';
+import { HomeScreen } from '@/features/home/ui/HomeScreen';
 
 export default function HomeRoute() {
-  return (
-    <PhasePlaceholder
-      title="Home"
-      phase={2}
-      withTabBar
-      body="Your heatmap and today's check-ins arrive in Phase 2."
-    />
-  );
+  return <HomeScreen />;
 }

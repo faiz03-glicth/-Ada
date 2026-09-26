@@ -6,6 +6,7 @@ export const goHome = jest.fn();
 export const goTab = jest.fn();
 export const openHeatmap = jest.fn();
 export const openDay = jest.fn();
+export const showDay = jest.fn();
 export const openCheckIn = jest.fn();
 export const openActivityEditor = jest.fn();
 export const openSettings = jest.fn();

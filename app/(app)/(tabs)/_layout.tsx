@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { goTab, openCheckIn } from '@/shared/actions';
+import { useFabActions } from '@/features/checkins/hooks/useFabActions';
+import { goTab } from '@/shared/actions';
 import { tabForRouteName } from '@/shared/actions/params';
 import { TAB_ITEMS } from '@/shared/config/tabs';
 import { TabBar } from '@/shared/ui';
@@ -10,6 +11,7 @@ import { useNavigationMotion } from '@/theme';
 export default function TabsLayout() {
   const transitions = useNavigationMotion();
   const { theme } = useUnistyles();
+  const fab = useFabActions();
   return (
     <Tabs
       screenOptions={{
@@ -23,7 +25,8 @@ export default function TabsLayout() {
           items={TAB_ITEMS}
           active={tabForRouteName(state.routes[state.index]?.name)}
           onTabPress={goTab}
-          onFabPress={() => openCheckIn()}
+          onFabPress={fab.onPress}
+          onFabLongPress={() => void fab.onLongPress()}
         />
       )}
     >

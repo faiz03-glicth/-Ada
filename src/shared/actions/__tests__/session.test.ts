@@ -66,7 +66,7 @@ describe('signOut', () => {
     expect(toast.success).toHaveBeenCalledWith(
       'Signed out',
       expect.objectContaining({
-        description: 'Your check-ins are saved to your account.',
+        description: 'Your check-ins stay on this device for when you sign back in.',
       }),
     );
   });

@@ -5,6 +5,8 @@ import { expoCryptoService } from '@/features/auth/data/services/CryptoService';
 import { googleSignInService } from '@/features/auth/data/services/GoogleAuthService';
 import { SupabaseAuthRepository } from '@/features/auth/data/SupabaseAuthRepository';
 import type { AuthRepository } from '@/features/auth/data/AuthRepository';
+import { LocalCheckInRepository, type CheckInRepository } from '@/features/checkins/data/CheckInRepository';
+import { createCheckInDao } from '@/features/checkins/data/local/checkInDao';
 import { createProfileDao } from '@/features/profile/data/local/profileDao';
 import { LocalFirstProfileRepository } from '@/features/profile/data/LocalFirstProfileRepository';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
@@ -23,6 +25,7 @@ import { getSupabase } from './supabase/client';
 export interface Repositories {
   auth: AuthRepository;
   profile: ProfileRepository;
+  checkIns: CheckInRepository;
 }
 
 /** Composition root: the only place concrete data sources and services are wired together. */
@@ -54,5 +57,11 @@ export function createRepositories(): Repositories {
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
-  return { auth, profile };
+  const checkIns = new LocalCheckInRepository({
+    dao: createCheckInDao(db),
+    uuid: expoCryptoService.uuid,
+    now: nowIso,
+  });
+
+  return { auth, profile, checkIns };
 }

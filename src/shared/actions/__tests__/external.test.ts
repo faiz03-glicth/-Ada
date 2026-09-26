@@ -33,10 +33,10 @@ describe('external actions', () => {
     expect(toast.info).toHaveBeenCalledWith("Couldn't open the page", expect.anything());
   });
 
-  it('later-phase actions are connected and say which phase they arrive in', async () => {
+  it('sends feedback through the help center, and says rating is not available yet', async () => {
     await sendFeedback();
+    expect(openBrowser).toHaveBeenLastCalledWith('https://streak.example.com/help');
     await rateApp();
-    expect(toast.info).toHaveBeenCalledTimes(2);
-    expect(toast.info).toHaveBeenCalledWith('Coming in Phase 4', expect.anything());
+    expect(toast.info).toHaveBeenCalledWith('Rating isn’t available yet', expect.anything());
   });
 });

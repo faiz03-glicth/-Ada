@@ -14,7 +14,7 @@ export interface SessionActions {
   finishOnboarding(options?: { silent?: boolean }): Promise<void>;
   /** Confirm → repository → toast. The route guard then shows Login (returning-user variant). */
   signOut(): Promise<void>;
-  /** Phase 4 (Account): connect Apple/Google to an existing account. */
+  /** Account: connect Apple/Google to an existing account (not supported yet; it says so). */
   linkProvider(provider: 'apple' | 'google'): void;
 }
 
@@ -27,10 +27,14 @@ export interface SessionDeps {
 
 const COPY = {
   allSet: { title: "You're all set", sub: 'Tap + whenever you do something worth counting.' },
-  confirmMember: 'Your check-ins are saved to your account. Sign in again any time to see them.',
+  // Check-ins aren't synced yet: they stay on this device, kept for this account.
+  confirmMember: 'Your check-ins stay on this device. Sign in again any time to see them.',
   confirmGuest:
     "You're using Streak as a guest, so your check-ins stay on this device. Continue as a guest later to pick up where you left off.",
-  signedOutMember: { title: 'Signed out', sub: 'Your check-ins are saved to your account.' },
+  signedOutMember: {
+    title: 'Signed out',
+    sub: 'Your check-ins stay on this device for when you sign back in.',
+  },
   signedOutGuest: { title: 'Signed out', sub: 'Your check-ins stay on this device.' },
   offline: { title: "You're offline", sub: 'Check your connection and try again.' },
   failed: { title: "Couldn't log out", sub: 'Please try again.' },
@@ -68,8 +72,8 @@ export function createSessionActions({ auth, store, clearCache, confirm }: Sessi
 
     linkProvider() {
       showInfo({
-        title: 'Coming in Phase 4',
-        sub: 'Connecting another sign-in method arrives with Account settings.',
+        title: 'Not available yet',
+        sub: 'Connecting another sign-in method isn’t supported yet.',
       });
     },
   };

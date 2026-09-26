@@ -46,7 +46,7 @@ src/shared/ui/                    primitives that consume the presets
 | toggle               | the platform switch                                                                                           | `Toggle`                                           |
 | loading              | content cross-fade on a surface that doesn't move                                                             | `Button` (`ContentSwap`), `SsoButton` (overlay)    |
 | themeTransition      | veil in the **current** canvas: cover 100ms, swap, hold 34ms, lift 220ms                                      | `ThemeRuntimeBridge`                               |
-| pulse                | CSS scale beat                                                                                                | check-in cell (Phase 2)                            |
+| pulse                | CSS scale beat, twice, then the cell is plain again                                                           | the day just checked in (Home heatmap)             |
 
 ### Why Light Mode used to look static
 
@@ -139,11 +139,31 @@ login tests). **Not yet observed on a device**: timing and feel still need a pas
 | Activity deselection              | PASS    | Same preset (dip), interruptible (tested).                                                                                                      |
 | Reminder toggle                   | PARTIAL | Platform switch animation: consistent in every theme, but not driven by the motion tokens and not stopped by the in-app Reduce Motion override. |
 | Start tracking                    | PASS    | Label → loading cross-fade, group cross-fade, success haptic, toast.                                                                            |
-| Home transition                   | PARTIAL | The cross-fade is shared, but Home is still the Phase 2 placeholder, so how it connects visually can't be judged yet.                           |
+| Home transition                   | PASS    | Group cross-fade into the real Home (heatmap first); nothing on Home animates in on its own.                                                    |
 | Completion toast                  | PARTIAL | sonner-native's own entrance: follows Reduce Motion (Reanimated global mode), but its timing isn't from the motion tokens.                      |
 | Rapid forward/back                | PASS    | Latest page wins; exits are 100ms fades; nothing queues (tested).                                                                               |
 | Rapid light/dark                  | PASS    | Latest theme wins; a lifting veil keeps its colour (tested).                                                                                    |
 | Glass light / dark                | PASS    | No preset reads the material; same code path. iOS 26 only, not device-checked.                                                                  |
+
+### Core app
+
+| Area                              | Result  | Notes                                                                                                                        |
+| --------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Tabs                              | PASS    | Shared cross-fade; the liquid bar; `soft` haptic only when the tab changes (re-tapping does nothing).                        |
+| + button                          | PASS    | Liquid press, `light` haptic; hold repeats the last check-in (`medium` on recognition, `success` only after it's stored).    |
+| Check-in / Day details sheets     | PASS    | Native form sheets: the platform drags, settles and dismisses them (finger → sheet, no JS per frame).                        |
+| Activity selection                | PASS    | `SelectableTile` (eased surface/border, icon swell); `selection` haptic only on a real change.                               |
+| Save                              | PASS    | Stored → cache → sheet closes → toast with Undo → `success` haptic. A failed save keeps the sheet and its input, no success. |
+| Undo / delete                     | PASS    | Undo closes its toast; `light` haptic. Delete asks first (`warning`); failures use `error`.                                  |
+| Heatmap months / calendar periods | PASS    | `ScreenTransition` (pushForward / pushBack by where the period sits in time).                                                |
+| Just-checked-in day               | PASS    | `pulse` on that one cell, cleared after it plays (a later remount won't replay it).                                          |
+| Charts                            | PASS    | Bar heights and meter widths ease (`normal`) on range changes; instant with Reduce Motion.                                   |
+| Toast                             | PARTIAL | sonner-native's own entrance (follows Reduce Motion, not the tokens). Nearly opaque, since there's no live blur behind it.   |
+
+Haptics live in `shared/lib/haptics.ts`: components ask for a meaning (`selection`, `light`, `medium`,
+`success`, `warning`, `error`); the service honours the person's Haptic feedback setting (Appearance),
+merges repeats of the same kind closer than 60ms, and does nothing (no error) where haptics aren't
+available. Reduce Motion doesn't turn haptics off: it's a visual setting.
 
 No row is FAIL. Route pushes are drawn by the platform (`ios_from_right`), so their curve is the OS's
 while in-screen pages use `layoutMotion.push`; both slide in the direction of travel.

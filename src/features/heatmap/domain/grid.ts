@@ -9,6 +9,8 @@ export interface HeatGridCell {
   state: HeatCellState;
   /** Spoken label for interactive cells, e.g. "Sep 24: 3 check-ins". */
   label?: string;
+  /** The day's check-ins, for real days (the month view prints it on the tile). */
+  count?: number;
 }
 
 /** Columns are weeks; each column holds up to 7 day cells, top to bottom. */

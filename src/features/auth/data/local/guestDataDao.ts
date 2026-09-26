@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
-import { appMeta, profiles } from '@/core/db/schema';
+import { appMeta, checkIns, profiles } from '@/core/db/schema';
 import type { AppDatabase } from '@/core/db/types';
 
 export interface GuestDataDao {
@@ -16,7 +16,7 @@ export function createGuestDataDao(db: AppDatabase): GuestDataDao {
   return {
     async reassignGuestData(guestId, userId, now) {
       db.transaction((tx) => {
-        // Phase 2 adds activities and check_ins here: UPDATE … SET user_id = userId, dirty = 1 WHERE user_id IS NULL.
+        tx.update(checkIns).set({ userId, dirty: true, updatedAt: now }).where(isNull(checkIns.userId)).run();
         tx.update(profiles)
           .set({ userId, deletedAt: now, updatedAt: now })
           .where(and(eq(profiles.id, guestId), isNull(profiles.userId)))

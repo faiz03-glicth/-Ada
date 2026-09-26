@@ -1,11 +1,41 @@
 import * as Haptics from 'expo-haptics';
 
-/** Haptics are feedback, never required: failures (unsupported device, low power) are ignored. */
+import { useHapticPreferencesStore } from '../state/hapticPreferencesStore';
+
+/**
+ * The haptic system: components ask for a meaning (selection, success, warning…) and this decides how it
+ * feels. Haptics are supplementary feedback, never required and never waited for: a call returns at once,
+ * and a device without haptics (a simulator, the web, low power mode) simply feels nothing, no error.
+ * The person can turn them off (Appearance); that choice is checked here, so no caller ever does.
+ */
+const enabled = () => useHapticPreferencesStore.getState().haptics;
+
 const fire = (effect: () => Promise<void>) => {
-  effect().catch(() => undefined);
+  if (!enabled()) return;
+  try {
+    effect().catch(() => undefined);
+  } catch {
+    // Not available on this platform.
+  }
+};
+
+/**
+ * One-off feedback of the same kind closer together than this is felt once: rapid taps (flicking through
+ * activities, a double-tapped button) never turn into a buzz. Choreographed beats (sequence, ramp) are
+ * timed on purpose and are never merged.
+ */
+export const HAPTIC_MIN_GAP_MS = 60;
+const lastFired = new Map<string, number>();
+const once = (kind: string, effect: () => Promise<void>) => {
+  const now = Date.now();
+  const last = lastFired.get(kind);
+  if (last !== undefined && now - last < HAPTIC_MIN_GAP_MS) return;
+  lastFired.set(kind, now);
+  fire(effect);
 };
 
 const impact = (style: Haptics.ImpactFeedbackStyle) => fire(() => Haptics.impactAsync(style));
+const notify = (type: Haptics.NotificationFeedbackType) => () => Haptics.notificationAsync(type);
 
 /** How hard a charging tick lands as the charge builds (0…1): light, then medium, then heavy. */
 function chargeStyle(progress: number): Haptics.ImpactFeedbackStyle {
@@ -35,12 +65,21 @@ export interface HapticRamp {
 }
 
 export const haptics = {
-  light: () => impact(Haptics.ImpactFeedbackStyle.Light),
-  /** A gentle, cushioned bump: used when the page changes. */
-  soft: () => impact(Haptics.ImpactFeedbackStyle.Soft),
-  selection: () => fire(() => Haptics.selectionAsync()),
-  success: () => fire(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
-  /** One impact at a chosen strength. */
+  /** A light tap: a primary control pressed (the + button), an Undo done. */
+  light: () => once('light', () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
+  /** A firmer tap: a long press recognised. */
+  medium: () => once('medium', () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
+  /** A gentle, cushioned bump: used when the page or tab changes. */
+  soft: () => once('soft', () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)),
+  /** A choice changed (a tile, a toggle, a segment, a day). Only for real changes, never re-selection. */
+  selection: () => once('selection', () => Haptics.selectionAsync()),
+  /** Something was saved or completed. Only after it actually succeeded. */
+  success: () => once('success', notify(Haptics.NotificationFeedbackType.Success)),
+  /** About to do something that can't be undone (a destructive confirmation). */
+  warning: () => once('warning', notify(Haptics.NotificationFeedbackType.Warning)),
+  /** Something the person asked for failed (not for ordinary validation messages). */
+  error: () => once('error', notify(Haptics.NotificationFeedbackType.Error)),
+  /** One impact at a chosen strength (choreographed beats: never merged). */
   impact: (strength: ImpactStrength) => impact(STRENGTH[strength]),
   /**
    * Impacts at set times, e.g. in step with an animation and its sound. Returns `stop`, which cancels the

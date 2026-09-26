@@ -33,6 +33,11 @@ export function openDay(date: ISODate): void {
   router.push(routes.day(date));
 }
 
+/** Switches the open Day details sheet to another day in place (its week strip): no new sheet. */
+export function showDay(date: ISODate): void {
+  router.setParams({ date });
+}
+
 /** Create (optionally for a given day) or edit (with logId): one sheet for both. */
 export function openCheckIn(options?: CheckInOptions): void {
   router.push(routes.checkIn(options));
