@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { openDay } from '@/shared/actions';
+import { openDay, openDayPicker } from '@/shared/actions';
 import { monthLong } from '@/shared/lib/date/calendar';
 import { testUser } from '@test/fakes/fakeRepositories';
 import { checkInDaysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
@@ -30,6 +30,9 @@ describe.each(SCHEMES)('Calendar in %s', (scheme) => {
     expect(screen.getByRole('button', { name: 'Next year' }).props.accessibilityState).toMatchObject({
       disabled: true,
     });
+    // A month of the year opens its days on the wheel; months still to come don't answer.
+    fireEvent.press(screen.getByRole('button', { name: /^January \d+, / }));
+    expect(openDayPicker).toHaveBeenCalledWith({ year, month: 1 });
     fireEvent.press(screen.getByRole('button', { name: 'Previous year' }));
     expect(screen.getByTestId('calendar-title')).toHaveTextContent(String(year - 1));
     expect(screen.getByLabelText('Check-ins, 0')).toBeTruthy();

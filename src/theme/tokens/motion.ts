@@ -95,6 +95,21 @@ export const motion = {
    * (a release inside the delay is still a press, in and out).
    */
   pager: { slideMs: DURATION.emphasis, landWithin: 0.02, pressDelayMs: DURATION.quick },
+  /**
+   * datePicker: dates on a horizontal wheel, the one under the centre pointer chosen. The finger moves the
+   * dates directly and the platform snaps the nearest one to the centre on release (velocity decides how
+   * far a flick carries). Each date's emphasis follows its distance from the centre continuously:
+   * `focusScale` at the centre easing to 1 one slot away, and dates fade toward `farOpacity` over
+   * `fadeSlots` slots. A tap on another date glides it to the centre (the platform's own scroll). One tick of feedback
+   * (haptic + wooden tick) per date that crosses the centre, never more often than `tickGapMs`.
+   */
+  datePicker: {
+    slotWidth: 58,
+    focusScale: 1.14,
+    farOpacity: 0.45,
+    fadeSlots: 3,
+    tickGapMs: 35,
+  },
   /** settle: something in a fixed frame moving to make room (a button gliding as the one below it goes). */
   settle: { durationMs: DURATION.normal },
   /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */

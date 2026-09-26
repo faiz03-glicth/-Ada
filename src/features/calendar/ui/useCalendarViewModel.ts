@@ -3,8 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { countOn } from '@/features/checkins/domain/checkInIndex';
 import { summarize } from '@/features/checkins/domain/stats';
 import { useCheckIns } from '@/features/checkins/hooks/useCheckIns';
-import { buildMonthCalendar, buildMonthGrid } from '@/features/heatmap/domain/calendarGrid';
-import { goBack, openDay, type HeatmapOptions, type HeatmapView } from '@/shared/actions';
+import {
+  buildMonthCalendar,
+  buildMonthGrid,
+  monthAccessibilityLabel,
+} from '@/features/heatmap/domain/calendarGrid';
+import { goBack, openDay, openDayPicker, type HeatmapOptions, type HeatmapView } from '@/shared/actions';
 import {
   addMonths,
   eachDay,
@@ -60,6 +64,8 @@ export function useCalendarViewModel(options: HeatmapOptions) {
           key: `${shown.year}-${month}`,
           label: monthShort(month),
           grid: buildMonthGrid({ year: shown.year, month }, dayOptions),
+          value: { year: shown.year, month },
+          accessibilityLabel: monthAccessibilityLabel({ year: shown.year, month }, dayOptions),
         })),
       ),
     [shown.year, dayOptions],
@@ -137,6 +143,7 @@ export function useCalendarViewModel(options: HeatmapOptions) {
     onPrevious: () => step(-1),
     onNext: () => step(1),
     onDayPress,
+    onMonthPress: ({ value }: HeatmapMonth) => openDayPicker({ year: value.year, month: value.month + 1 }),
     onBack: () => goBack(),
   };
 }

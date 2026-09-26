@@ -5,10 +5,10 @@ import { checkInsOn, countOn } from '@/features/checkins/domain/checkInIndex';
 import { currentStreak, summarize, trend, type TrendRange } from '@/features/checkins/domain/stats';
 import { useCheckIns } from '@/features/checkins/hooks/useCheckIns';
 import { useCheckInFeedbackStore } from '@/features/checkins/state/checkInFeedbackStore';
-import { buildMonthGrid } from '@/features/heatmap/domain/calendarGrid';
+import { buildMonthGrid, monthAccessibilityLabel } from '@/features/heatmap/domain/calendarGrid';
 import { profileTitle } from '@/features/profile/domain/Profile';
 import { useProfile } from '@/features/profile/hooks/useProfile';
-import { goTab, openCheckIn, openDay, openHeatmap } from '@/shared/actions';
+import { goTab, openCheckIn, openDay, openDayPicker, openHeatmap } from '@/shared/actions';
 import {
   addDays,
   addMonths,
@@ -65,6 +65,8 @@ export function useHomeViewModel() {
       key: `${month.year}-${month.month}`,
       label: monthShort(month.month),
       grid: buildMonthGrid(month, options),
+      value: month,
+      accessibilityLabel: monthAccessibilityLabel(month, options),
     }));
   }, [index, months, today, weekStart, outlineToday]);
 
@@ -91,10 +93,10 @@ export function useHomeViewModel() {
   const trendReady = firstDay !== undefined && firstDay <= addDays(today, -7);
 
   const name = profile ?? user;
-  const onDayPress = useCallback((day: string) => {
-    haptics.selection();
-    openDay(day as ISODate);
-  }, []);
+  const onMonthPress = useCallback(
+    ({ value }: HeatmapMonth) => openDayPicker({ year: value.year, month: value.month + 1 }),
+    [],
+  );
 
   return {
     loading,
@@ -135,8 +137,8 @@ export function useHomeViewModel() {
       haptics.selection();
       setTrendRange(range);
     },
-    onDayPress,
-    onToday: () => onDayPress(today),
+    onMonthPress,
+    onToday: () => openDay(today),
     onOpenCalendar: () => openHeatmap({ view: 'year', year: last.year }),
     onProfile: () => goTab('profile'),
     onSeeAll: () => goTab('history'),

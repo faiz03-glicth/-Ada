@@ -18,6 +18,8 @@ const SOURCES = {
   heatmapStack: require('../../../assets/sounds/heatmap-stack.wav') as number,
   /** A page of the onboarding pager settling into place: one wooden block set down. */
   pageClack: require('../../../assets/sounds/page-clack.wav') as number,
+  /** A date crossing the date picker's centre: one small, dry wooden tick (quiet: it repeats as you scroll). */
+  dateTick: require('../../../assets/sounds/date-tick.wav') as number,
 } as const;
 export type SoundName = keyof typeof SOURCES;
 

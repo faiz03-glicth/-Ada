@@ -3,6 +3,7 @@ import {
   eachDay,
   firstOfMonth,
   lastOfMonth,
+  monthLong,
   monthOf,
   monthShort,
   startOfWeek,
@@ -68,6 +69,14 @@ function monthCells(month: YearMonth, options: DayCellOptions): HeatGridCell[] {
     ...Array.from({ length: offset }, (_, i) => blank(i)),
     ...eachDay(first, lastOfMonth(month)).map((day) => dayCell(day, options)),
   ];
+}
+
+/** "September 2026, 12 check-ins": how a heatmap month is read out as the button that opens it. */
+export function monthAccessibilityLabel(month: YearMonth, options: DayCellOptions): string {
+  const total = eachDay(firstOfMonth(month), lastOfMonth(month))
+    .filter((day) => day <= options.today)
+    .reduce((sum, day) => sum + options.countOn(day), 0);
+  return `${monthLong(month.month)} ${month.year}, ${checkInCount(total)}`;
 }
 
 /** A month as heatmap columns (one per week, weekdays top to bottom), as on Home and the year view. */

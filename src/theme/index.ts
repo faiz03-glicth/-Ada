@@ -41,5 +41,6 @@ export { useNavigationMotion, type NavigationMotion } from './motion/useNavigati
 export { usePressMotion, type PressFeedback } from './motion/usePressMotion';
 export { useSelectionMotion } from './motion/useSelectionMotion';
 export { useStateTransition } from './motion/useStateTransition';
+export { centredSlot, slotDistance, useWheelFocus, wheelFocus } from './motion/useWheelFocus';
 export { MotionRuntimeBridge } from './sync/MotionRuntimeBridge';
 export { ThemeRuntimeBridge } from './sync/ThemeRuntimeBridge';

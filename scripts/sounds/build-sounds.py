@@ -11,6 +11,9 @@ animation:
   (shortened to the flip), its catch as the flip lands; then a wooden clack as each diagonal of the new
   face stacks in.
 - page-clack.wav: one wooden clack, for a page of the onboarding pager settling into place.
+- date-tick.wav: a small, dry, single wooden tick, for each date that crosses the date picker's centre. The
+  very start of a clack (its knock, not its ring), high-passed so it sounds small, decaying fast, and much
+  quieter than the other effects: it can play many times in a row.
 
 It also writes sound-timings.json with the timings it used; a Jest test checks them against the motion
 tokens, so the sounds and the animations can't drift apart silently. Re-run it after changing those tokens:
@@ -51,6 +54,11 @@ FALL_PREROLL_MS = 3  # keep the first transient's attack intact
 CLACKS_IN_FILE = [(300, 352), (352, 408), (408, 520)]
 LOUDEST_CLACK = 1
 
+# The date tick: how much of a clack's attack to keep, how fast it dies away, and how loud it is.
+TICK_MS = 26
+TICK_DECAY_MS = 6  # the envelope falls by e every this many ms: a knock, no ring
+TICK_PEAK = 0.3  # half the other effects
+
 # The coin-toss recording: the thumb's flick, a long quiet spin, then the catch (right at the file's end).
 COIN_FLICK_IN_FILE = 28
 COIN_CATCH_IN_FILE = 944
@@ -77,8 +85,8 @@ def fade(signal: np.ndarray, in_ms: float, out_ms: float) -> np.ndarray:
     return out
 
 
-def write(path: Path, signal: np.ndarray) -> None:
-    signal = signal * (PEAK / max(1e-9, float(np.max(np.abs(signal)))))
+def write(path: Path, signal: np.ndarray, peak: float = PEAK) -> None:
+    signal = signal * (peak / max(1e-9, float(np.max(np.abs(signal)))))
     pcm = (np.clip(signal, -1, 1) * 32767).astype("<i2")
     with wave.open(str(path), "wb") as out:
         out.setnchannels(1)
@@ -156,6 +164,13 @@ def main() -> None:
 
     # Pager: a page settling into place is one block set down.
     write(SOUNDS / "page-clack.wav", np.concatenate([clacks[LOUDEST_CLACK], np.zeros(ms(40))]))
+
+    # Date picker: one small wooden tick. The first moments of the shortest clack, with its low body taken
+    # out (a first-difference high-pass) so it reads as a tick, not a block; then a fast exponential decay.
+    knock = clacks[0][: ms(TICK_MS)]
+    knock = np.concatenate([[knock[0]], np.diff(knock)]) * 0.6 + knock * 0.4
+    knock = knock * np.exp(-np.arange(len(knock)) / ms(TICK_DECAY_MS))
+    write(SOUNDS / "date-tick.wav", np.concatenate([fade(knock, 0.3, 4), np.zeros(ms(20))]), TICK_PEAK)
 
     (SOUNDS / "sound-timings.json").write_text(
         json.dumps(

@@ -1,11 +1,13 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { useWindowDimensions, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native-unistyles';
 
 import type { HeatGrid } from '@/features/heatmap/domain/grid';
+import type { YearMonth } from '@/shared/lib/date/calendar';
+import { motion } from '@/theme';
 
 import { HeatCell } from './HeatCell';
+import { PressableScale } from './PressableScale';
 import { Text } from './Text';
 
 export interface HeatmapMonth {
@@ -13,14 +15,21 @@ export interface HeatmapMonth {
   /** "Sep"; shown over the month's first week. */
   label: string;
   grid: HeatGrid;
+  /** Which month this is (passed back when it's chosen). */
+  value: YearMonth;
+  /** Read by screen readers for the month: "September 2026, 12 check-ins". */
+  accessibilityLabel?: string;
 }
 
 export interface HeatmapMonthsProps {
   months: readonly HeatmapMonth[];
   /** Seven row letters, in the person's week order. */
   dayLabels: readonly string[];
-  /** Tapping (or activating, with a screen reader) a real day. Future days and blanks don't answer. */
-  onDayPress?: (day: string) => void;
+  /**
+   * Choosing a month: the whole month (its name and every week of it) is one comfortable target, so no one
+   * has to aim at a single day. Months that haven't started yet don't answer.
+   */
+  onMonthPress?: (month: HeatmapMonth) => void;
   /** Horizontal space around the heatmap on screen (gutters + card padding), to size the cells. */
   inset?: number;
   gap?: number;
@@ -41,14 +50,14 @@ const MONTH_LABEL_GAP = 6;
  * quarter of the year view. Cells are sized to fill the width they're given, so a quarter always fits
  * without scrolling sideways.
  *
- * Built for many cells: each day is a plain view (no per-cell touch handler); one tap handler per month
- * works out which day was touched from where. Each real day is still its own button for screen readers
- * ("Sep 24: 3 check-ins"). Cells are memoised, so a new check-in re-renders only the day it changed.
+ * The heatmap is an overview and a way into a month, not a grid of tiny buttons: each month is one
+ * target (a gentle press on the whole month), and the exact day is then chosen on the date wheel. Cells
+ * are plain, memoised views, so a new check-in re-renders only the day it changed.
  */
 export const HeatmapMonths = memo(function HeatmapMonths({
   months,
   dayLabels,
-  onDayPress,
+  onMonthPress,
   inset = 64,
   gap = 3,
   monthGap = 8,
@@ -83,7 +92,7 @@ export const HeatmapMonths = memo(function HeatmapMonths({
           cell={cell}
           gap={gap}
           radius={radius}
-          onDayPress={onDayPress}
+          onMonthPress={onMonthPress}
           pulseDay={pulseDay}
         />
       ))}
@@ -91,12 +100,15 @@ export const HeatmapMonths = memo(function HeatmapMonths({
   );
 });
 
+/** A month with at least one day that has happened can be opened. */
+const hasStarted = (month: HeatmapMonth) => month.grid.columns.some((week) => week.some((day) => day.label));
+
 interface MonthGridProps {
   month: HeatmapMonth;
   cell: number;
   gap: number;
   radius: number;
-  onDayPress?: (day: string) => void;
+  onMonthPress?: (month: HeatmapMonth) => void;
   pulseDay?: string | null;
 }
 
@@ -105,49 +117,54 @@ const MonthGrid = memo(function MonthGrid({
   cell,
   gap,
   radius,
-  onDayPress,
+  onMonthPress,
   pulseDay,
 }: MonthGridProps) {
-  const { columns } = month.grid;
-  const tap = useMemo(() => {
-    const pitch = cell + gap;
-    return Gesture.Tap()
-      .enabled(onDayPress !== undefined)
-      .runOnJS(true)
-      .onEnd((event, success) => {
-        if (!success || !onDayPress) return;
-        const day = columns[Math.floor(event.x / pitch)]?.[Math.floor(event.y / pitch)];
-        if (day?.label) onDayPress(day.key);
-      });
-  }, [cell, gap, columns, onDayPress]);
-
-  return (
-    <View style={styles.month}>
-      <Text variant="mini" tone="tertiary" style={styles.monthLabel} accessible={false}>
+  const grid = (
+    <>
+      <Text variant="mini" tone="tertiary" style={styles.monthLabel}>
         {month.label}
       </Text>
-      <GestureDetector gesture={tap}>
-        <View style={styles.row(gap)} accessibilityLabel={month.label}>
-          {columns.map((column, columnIndex) => (
-            <View key={columnIndex} style={styles.column(gap)}>
-              {column.map((day) => (
-                <HeatCell
-                  key={day.key === pulseDay ? `${day.key}-pulse` : day.key}
-                  level={day.level}
-                  state={day.state}
-                  size={cell}
-                  radius={radius}
-                  pulse={day.key === pulseDay}
-                  accessibilityLabel={day.label}
-                  dayKey={day.label ? day.key : undefined}
-                  onActivate={day.label ? onDayPress : undefined}
-                />
-              ))}
-            </View>
-          ))}
-        </View>
-      </GestureDetector>
-    </View>
+      <View style={styles.row(gap)}>
+        {month.grid.columns.map((column, columnIndex) => (
+          <View key={columnIndex} style={styles.column(gap)}>
+            {column.map((day) => (
+              <HeatCell
+                key={day.key === pulseDay ? `${day.key}-pulse` : day.key}
+                level={day.level}
+                state={day.state}
+                size={cell}
+                radius={radius}
+                pulse={day.key === pulseDay}
+              />
+            ))}
+          </View>
+        ))}
+      </View>
+    </>
+  );
+
+  if (!onMonthPress || !hasStarted(month)) {
+    return (
+      <View style={styles.month} accessible={false} importantForAccessibility="no-hide-descendants">
+        {grid}
+      </View>
+    );
+  }
+  return (
+    <PressableScale
+      onPress={() => onMonthPress(month)}
+      scaleTo={motion.press.subtleScale}
+      // A little room around the month, so a press just outside its first or last week still counts.
+      hitSlop={{ top: 8, bottom: 8, left: gap, right: gap }}
+      accessibilityRole="button"
+      accessibilityLabel={month.accessibilityLabel ?? month.label}
+      accessibilityHint="Opens the month's days"
+      style={styles.month}
+      testID={`month-${month.key}`}
+    >
+      {grid}
+    </PressableScale>
   );
 });
 

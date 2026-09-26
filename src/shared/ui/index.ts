@@ -9,6 +9,7 @@ export { Button } from './Button';
 export { Card } from './Card';
 export { ChipRow, type ChipOption } from './Chip';
 export { ContentSwap } from './ContentSwap';
+export { DateWheel, type WheelDay } from './DateWheel';
 export { EmptyState } from './EmptyState';
 export { HeatCell } from './HeatCell';
 export { Heatmap } from './Heatmap';

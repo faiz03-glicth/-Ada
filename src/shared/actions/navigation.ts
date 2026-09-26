@@ -4,6 +4,7 @@ import { routes } from './routes';
 import type {
   AuthIntent,
   CheckInOptions,
+  DayPickerOptions,
   EditableField,
   HeatmapOptions,
   ISODate,
@@ -31,6 +32,16 @@ export function openHeatmap(options?: HeatmapOptions): void {
 
 export function openDay(date: ISODate): void {
   router.push(routes.day(date));
+}
+
+/** A month chosen on a heatmap: its days on the date wheel, to pick one. */
+export function openDayPicker(options: DayPickerOptions): void {
+  router.push(routes.dayPicker(options));
+}
+
+/** The date wheel's day, confirmed: Day details takes the picker's place (Back returns to the heatmap). */
+export function openDayFromPicker(date: ISODate): void {
+  router.replace(routes.day(date));
 }
 
 /** Switches the open Day details sheet to another day in place (its week strip): no new sheet. */

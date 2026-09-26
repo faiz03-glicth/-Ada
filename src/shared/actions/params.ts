@@ -63,6 +63,15 @@ export function parseHeatmapOptions(raw: {
   };
 }
 
+/** The date wheel's month; null for anything that isn't a real month. */
+export function parseDayPickerOptions(raw: {
+  year?: RawParam;
+  month?: RawParam;
+}): { year: number; month: number } | null {
+  const { year, month } = parseHeatmapOptions(raw);
+  return year !== undefined && month !== undefined ? { year, month } : null;
+}
+
 export function parseOptionalId(raw: RawParam): string | undefined {
   const value = first(raw)?.trim();
   return value ? value : undefined;

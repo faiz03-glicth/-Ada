@@ -3,6 +3,7 @@ import type { Href } from 'expo-router';
 import type {
   AuthIntent,
   CheckInOptions,
+  DayPickerOptions,
   EditableField,
   HeatmapOptions,
   ISODate,
@@ -27,6 +28,10 @@ export const routes = {
     params: defined({ view, year: year?.toString(), month: month?.toString() }),
   }),
   day: (date: ISODate): Href => ({ pathname: '/day/[date]', params: { date } }),
+  dayPicker: ({ year, month }: DayPickerOptions): Href => ({
+    pathname: '/day-picker',
+    params: { year: String(year), month: String(month) },
+  }),
   checkIn: ({ date, logId }: CheckInOptions = {}): Href => ({
     pathname: '/check-in',
     params: defined({ date, logId }),

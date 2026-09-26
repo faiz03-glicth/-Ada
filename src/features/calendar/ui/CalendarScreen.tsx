@@ -81,11 +81,11 @@ function YearView({ vm }: { vm: CalendarViewModel }) {
       </View>
       <Card style={styles.quarters}>
         {vm.quarters.map((quarter, i) => (
-          <HeatmapMonths key={i} months={quarter} dayLabels={vm.dayLabels} onDayPress={vm.onDayPress} />
+          <HeatmapMonths key={i} months={quarter} dayLabels={vm.dayLabels} onMonthPress={vm.onMonthPress} />
         ))}
         <View style={styles.between}>
           <Text variant="mini" tone="tertiary">
-            Tap a day for details
+            Tap a month to pick a day
           </Text>
           <Legend />
         </View>

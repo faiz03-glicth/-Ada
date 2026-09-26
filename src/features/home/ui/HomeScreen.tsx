@@ -137,7 +137,7 @@ function HeatmapCard({ vm }: { vm: HomeViewModel }) {
         <HeatmapMonths
           months={vm.heatmap}
           dayLabels={vm.dayLabels}
-          onDayPress={vm.onDayPress}
+          onMonthPress={vm.onMonthPress}
           pulseDay={vm.pulseDay}
         />
       </ScreenTransition>

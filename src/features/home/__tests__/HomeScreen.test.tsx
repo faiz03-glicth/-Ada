@@ -1,8 +1,8 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { openCheckIn, openDay, openHeatmap } from '@/shared/actions';
-import { shortDate } from '@/shared/lib/format/dates';
+import { openCheckIn, openDay, openDayPicker, openHeatmap } from '@/shared/actions';
+import { monthLong } from '@/shared/lib/date/calendar';
 import { testUser } from '@test/fakes/fakeRepositories';
 import { checkInDaysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
 import { renderWithApp } from '@test/providers';
@@ -35,10 +35,18 @@ describe.each(SCHEMES)('Home in %s', (scheme) => {
     expect(screen.getByText(/Chapter 4/)).toBeTruthy();
   });
 
-  it('opens a day from the heatmap, and the full heatmap from the year', async () => {
+  it('opens a month (not a tiny day) from the heatmap, today from its line, the year from its title', async () => {
     renderWithApp(<HomeScreen />, { scheme, repositories: repositoriesWith([checkInDaysAgo(0)]) });
-    const cell = await screen.findByLabelText(`${shortDate(today())}: 1 check-in`);
-    fireEvent(cell, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    const now = new Date();
+    const month = await screen.findByRole('button', {
+      name: `${monthLong(now.getMonth())} ${now.getFullYear()}, 1 check-in`,
+    });
+    fireEvent.press(month);
+    expect(openDayPicker).toHaveBeenCalledWith({ year: now.getFullYear(), month: now.getMonth() + 1 });
+    // The days themselves are no longer buttons.
+    expect(screen.queryAllByRole('button', { name: /: \d+ check-in/ })).toEqual([]);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Today, 1 check-in' }));
     expect(openDay).toHaveBeenCalledWith(today());
 
     fireEvent.press(screen.getByHintText('Opens the full heatmap'));
