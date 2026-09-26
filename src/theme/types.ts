@@ -94,7 +94,15 @@ export interface GlassMaterial {
   accentShadow: string;
   strong: string;
   tint: string;
-  tabBar: string;
+  /**
+   * The floating tab bar: a frosted layer over the content (`blur`, 0–100) under a translucent `tint`, lit
+   * along its top (`highlight`, a CSS gradient) and edged like the cards. Only this bar and toasts blur:
+   * they're small, and blur costs a pass over what's behind them every frame the content moves.
+   * `edgeLight` is the lit rim (inset lines, drawn above the frost); `shadow` the drop below the bar.
+   */
+  tabBar: { tint: string; blur: number; highlight: string; edgeLight: string; shadow: string };
+  /** The + button: lit from inside (`highlight`, a CSS gradient over the green), a frosted `ring`, a green glow. */
+  fab: { highlight: string; ring: string; shadow: string };
   /** The active-tab highlight that slides between tabs. */
   pill: string;
   sheet: { tint: string; blur: number };

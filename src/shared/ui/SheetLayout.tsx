@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { motion } from '@/theme';
+
 import { IconButton } from './IconButton';
+import { PressDelay } from './pressDelay';
 import { Text } from './Text';
 
 export interface SheetLayoutProps {
@@ -14,6 +17,8 @@ export interface SheetLayoutProps {
   subtitle?: string;
   onClose: () => void;
   children: ReactNode;
+  /** The sheet has a text field: keep it above the keyboard (only such sheets track the keyboard). */
+  keyboard?: boolean;
   testID?: string;
 }
 
@@ -22,15 +27,17 @@ export interface SheetLayoutProps {
  * form sheet (the stack presents it), so dragging, settling and dismissing follow the finger natively;
  * this lays out its header (title, Close) and scrolls the content above the keyboard.
  */
-export function SheetLayout({ title, eyebrow, subtitle, onClose, children, testID }: SheetLayoutProps) {
-  return (
-    <KeyboardAwareScrollView
-      testID={testID}
-      bottomOffset={24}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.content}
-      accessibilityViewIsModal
-    >
+export function SheetLayout({
+  title,
+  eyebrow,
+  subtitle,
+  onClose,
+  children,
+  keyboard = false,
+  testID,
+}: SheetLayoutProps) {
+  const body = (
+    <>
       <View style={styles.header}>
         <View style={styles.titles}>
           {eyebrow ? (
@@ -50,7 +57,31 @@ export function SheetLayout({ title, eyebrow, subtitle, onClose, children, testI
         <IconButton icon="close" onPress={onClose} accessibilityLabel="Close" testID="sheet-close" />
       </View>
       {children}
-    </KeyboardAwareScrollView>
+    </>
+  );
+  return (
+    <PressDelay value={motion.scroll.pressDelayMs}>
+      {keyboard ? (
+        <KeyboardAwareScrollView
+          testID={testID}
+          bottomOffset={24}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.content}
+          accessibilityViewIsModal
+        >
+          {body}
+        </KeyboardAwareScrollView>
+      ) : (
+        <ScrollView
+          testID={testID}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.content}
+          accessibilityViewIsModal
+        >
+          {body}
+        </ScrollView>
+      )}
+    </PressDelay>
   );
 }
 

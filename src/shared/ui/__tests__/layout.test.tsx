@@ -9,16 +9,23 @@ import { TAB_ITEMS, type TabId } from '@/shared/config/tabs';
 import { motion } from '@/theme';
 import { useThemePreferencesStore } from '@/theme/state/themePreferencesStore';
 import type { ColorScheme, VisualStyle } from '@/theme/types';
-import { setTestTheme } from '@test/mocks/unistyles';
+import { getTestTheme, setTestTheme } from '@test/mocks/unistyles';
 import { renderInScheme, SCHEMES, styleOf } from '@test/render';
 
 import { PhasePlaceholder } from '../PhasePlaceholder';
 import { Screen } from '../Screen';
+import { SegmentedControl } from '../SegmentedControl';
 import { TabBar } from '../TabBar';
 import { Text } from '../Text';
 import { dismissAllToasts, showInfo, showSuccess } from '../toast';
 
 describe.each(SCHEMES)('layout components in %s', (scheme) => {
+  /** The liquid footer is Liquid Glass only: its tests render with that material. */
+  const renderGlass = (ui: React.ReactElement) => {
+    setTestTheme(scheme, 'glass');
+    return { ...render(ui), theme: getTestTheme() };
+  };
+
   it('Screen renders its content, scrolling or not', () => {
     const { rerender } = renderInScheme(
       <Screen>
@@ -35,13 +42,11 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
     expect(screen.getByText('Scrolling')).toBeTruthy();
   });
 
-  it('TabBar marks the active tab and routes presses', () => {
+  it.each(['classic', 'glass'] as const)('TabBar (%s) marks the active tab and routes presses', (style) => {
     const onTabPress = jest.fn();
     const onFabPress = jest.fn();
-    renderInScheme(
-      <TabBar items={TAB_ITEMS} active="profile" onTabPress={onTabPress} onFabPress={onFabPress} />,
-      scheme,
-    );
+    setTestTheme(scheme, style);
+    render(<TabBar items={TAB_ITEMS} active="profile" onTabPress={onTabPress} onFabPress={onFabPress} />);
     expect(screen.getAllByRole('tab')).toHaveLength(4);
     expect(screen.getByRole('tab', { name: 'Profile' }).props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(screen.getByRole('tab', { name: 'Insights' }));
@@ -53,9 +58,8 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
   it('TabBar shows ONE liquid once tabs are measured, even after rapid taps', () => {
     const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
     const onTabPress = jest.fn();
-    const { theme } = renderInScheme(
+    const { theme } = renderGlass(
       <TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />,
-      scheme,
     );
     const hidden = { includeHiddenElements: true };
     // Decorative and hidden from screen readers; absent until the tabs have been laid out.
@@ -70,7 +74,7 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
       width: 52,
       height: 52,
       borderRadius: 26,
-      backgroundColor: theme.colors.accentSoft,
+      backgroundColor: theme.glass?.pill,
     });
 
     for (const name of ['Insights', 'History', 'Profile', 'Home'])
@@ -89,9 +93,8 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
       return entry && 'scale' in entry ? entry.scale : undefined;
     };
     const renderBar = () => {
-      const view = renderInScheme(
+      const view = renderGlass(
         <TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />,
-        scheme,
       );
       fireEvent(screen.getByTestId('tab-home'), 'layout', layout(6));
       fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(76));
@@ -115,10 +118,7 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
 
   it('dragging the liquid along the bar selects the tab it is released on', async () => {
     const onTabPress = jest.fn();
-    renderInScheme(
-      <TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />,
-      scheme,
-    );
+    renderGlass(<TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />);
     const layout = (x: number) => ({ nativeEvent: { layout: { x, y: 6, width: 70, height: 52 } } });
     fireEvent(screen.getByTestId('tab-home'), 'layout', layout(10));
     fireEvent(screen.getByTestId('tab-insights'), 'layout', layout(80));
@@ -147,9 +147,84 @@ describe.each(SCHEMES)('layout components in %s', (scheme) => {
   });
 });
 
+describe.each(SCHEMES)('the Classic footer in %s', (scheme) => {
+  const hidden = { includeHiddenElements: true };
+  beforeEach(() => setTestTheme(scheme, 'classic'));
+
+  it('is a plain docked bar: no frost, no liquid, no magnification', () => {
+    render(<TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
+    expect(screen.getByTestId('tab-bar-classic')).toBeTruthy();
+    expect(screen.queryByTestId('tab-bar-glass', hidden)).toBeNull();
+    expect(screen.queryByTestId('tab-indicator', hidden)).toBeNull();
+    expect(screen.queryByTestId('liquid-head', hidden)).toBeNull();
+    expect(screen.queryByTestId('tab-home-icon', hidden)).toBeNull();
+    const bar = styleOf(screen.getByTestId('tab-bar-classic'));
+    expect(bar).toMatchObject({ bottom: 0, backgroundColor: getTestTheme().colors.surfaceRaised });
+    expect(bar.backgroundColor).not.toMatch(/rgba/);
+  });
+
+  it('shows the selection by colour alone, and only a real change of tab is felt', () => {
+    const onTabPress = jest.fn();
+    render(<TabBar items={TAB_ITEMS} active="home" onTabPress={onTabPress} onFabPress={jest.fn()} />);
+    fireEvent.press(screen.getByRole('tab', { name: 'Home' }));
+    fireEvent.press(screen.getByRole('tab', { name: 'History' }));
+    expect(onTabPress.mock.calls.map(([tab]) => tab)).toEqual(['home', 'history']);
+  });
+});
+
+describe.each(SCHEMES)('the Liquid Glass footer in %s', (scheme) => {
+  beforeEach(() => setTestTheme(scheme, 'glass'));
+
+  it('is a frosted pane: translucent tint, lit top, glass edge', () => {
+    render(<TabBar items={TAB_ITEMS} active="home" onTabPress={jest.fn()} onFabPress={jest.fn()} />);
+    expect(screen.queryByTestId('tab-bar-classic')).toBeNull();
+    const glass = getTestTheme().glass;
+    expect(glass?.tabBar.tint).toMatch(/^rgba\(/);
+    expect(glass?.tabBar.highlight).toMatch(/^linear-gradient/);
+    expect(screen.getByTestId('tab-bar-glass', { includeHiddenElements: true })).toBeTruthy();
+  });
+});
+
+describe.each(SCHEMES)('the segmented control in %s', (scheme) => {
+  const OPTIONS = [
+    { value: 'D', label: 'D' },
+    { value: 'W', label: 'W' },
+    { value: 'M', label: 'M' },
+  ] as const;
+  const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 126, height: 44 } } };
+
+  it('glides one frosted pill to the choice with Liquid Glass, and has none in Classic', () => {
+    setTestTheme(scheme, 'glass');
+    const onChange = jest.fn();
+    const { rerender } = render(
+      <SegmentedControl
+        options={OPTIONS}
+        value="W"
+        onChange={onChange}
+        accessibilityLabel="Range"
+        testID="seg"
+      />,
+    );
+    fireEvent(screen.getByTestId('seg'), 'layout', layout);
+    expect(screen.getByTestId('seg-pill')).toBeTruthy();
+    fireEvent.press(screen.getByRole('radio', { name: 'M' }));
+    expect(onChange).toHaveBeenCalledWith('M');
+
+    setTestTheme(scheme, 'classic');
+    rerender(
+      <SegmentedControl
+        options={OPTIONS}
+        value="W"
+        onChange={onChange}
+        accessibilityLabel="Range"
+        testID="seg"
+      />,
+    );
+    expect(screen.queryByTestId('seg-pill')).toBeNull();
+  });
+});
+
 const LOOKS: readonly [ColorScheme, VisualStyle][] = [
-  ['light', 'classic'],
-  ['dark', 'classic'],
   ['light', 'glass'],
   ['dark', 'glass'],
 ];

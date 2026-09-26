@@ -8,6 +8,8 @@ import { intensityLevel } from '@/features/heatmap/domain/intensity';
 import type { ISODate } from '@/shared/lib/date/isoDate';
 import { checkInCount, dayLabel } from '@/shared/lib/format/dates';
 import { Backdrop, Card, ChipRow, EmptyState, HeatCell, Text, TextField } from '@/shared/ui';
+import { PressDelay } from '@/shared/ui/pressDelay';
+import { motion } from '@/theme';
 
 import type { HistoryGroup } from '../domain/history';
 import { useHistoryViewModel } from './useHistoryViewModel';
@@ -57,32 +59,34 @@ export function HistoryScreen() {
   return (
     <SafeAreaView edges={['top']} style={styles.root} testID="history-screen">
       <Backdrop />
-      <FlatList
-        data={vm.empty ? [] : vm.groups}
-        keyExtractor={(group) => group.day}
-        renderItem={renderItem}
-        ListHeaderComponent={header}
-        ListEmptyComponent={
-          vm.loading ? null : vm.empty ? (
-            <EmptyState
-              icon="clock"
-              title="No check-ins yet"
-              body="Everything you log shows up here, grouped by day."
-              action={{ label: 'Add a check-in', onPress: vm.onAdd }}
-            />
-          ) : (
-            <Text variant="footnote" tone="secondary" align="center" style={styles.noMatch}>
-              {vm.noMatchText}
-            </Text>
-          )
-        }
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={7}
-      />
+      <PressDelay value={motion.scroll.pressDelayMs}>
+        <FlatList
+          data={vm.empty ? [] : vm.groups}
+          keyExtractor={(group) => group.day}
+          renderItem={renderItem}
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            vm.loading ? null : vm.empty ? (
+              <EmptyState
+                icon="clock"
+                title="No check-ins yet"
+                body="Everything you log shows up here, grouped by day."
+                action={{ label: 'Add a check-in', onPress: vm.onAdd }}
+              />
+            ) : (
+              <Text variant="footnote" tone="secondary" align="center" style={styles.noMatch}>
+                {vm.noMatchText}
+              </Text>
+            )
+          }
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+        />
+      </PressDelay>
     </SafeAreaView>
   );
 }

@@ -50,7 +50,7 @@ export function EditNameSheet() {
   };
 
   return (
-    <SheetLayout title="Name" onClose={() => goBack()} testID="edit-name-sheet">
+    <SheetLayout keyboard title="Name" onClose={() => goBack()} testID="edit-name-sheet">
       <TextField
         label="Name"
         defaultValue={initial}

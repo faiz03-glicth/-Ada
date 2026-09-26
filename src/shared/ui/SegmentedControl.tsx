@@ -1,8 +1,9 @@
-import { Pressable, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import { Pressable, View, type LayoutChangeEvent } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-import { useStateTransition } from '@/theme';
+import { motion, useStateTransition } from '@/theme';
 
 import { Crossfade } from './Crossfade';
 import { Text } from './Text';
@@ -24,9 +25,16 @@ export interface SegmentedControlProps<T extends string> {
   testID?: string;
 }
 
+const PAD = 3;
+const GAP = 2;
+
 /**
- * A row of mutually exclusive choices (a radio group). The selection's tint and its label's colour and
- * weight ease from the old segment to the new one; with Reduce Motion they change instantly.
+ * A row of mutually exclusive choices (a radio group). The label's colour and weight ease from the old
+ * segment to the new one. How the selection itself moves depends on the material:
+ * - Liquid Glass: one frosted pill that glides to the chosen segment on a soft spring (the motion
+ *   system's `segmentSlide`), retargeting mid-flight if the choice changes again;
+ * - Classic: the chosen segment's tint eases in and the old one's out, in place.
+ * With Reduce Motion both change at once. The choice is applied immediately either way.
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -37,9 +45,39 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const { theme } = useUnistyles();
   const tint = useStateTransition('backgroundColor', 'normal');
+  const glass = theme.glass !== null;
+  const index = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+
+  // Glass: the pill's position, in segments, and each segment's width once the track is measured.
+  const [segment, setSegment] = useState(0);
+  const position = useSharedValue(index);
+  useEffect(() => {
+    position.set(withSpring(index, motion.segmentSlide));
+  }, [index, position]);
+  const pill = useAnimatedStyle(() => ({ transform: [{ translateX: position.get() * (segment + GAP) }] }));
+  const measure = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width - PAD * 2;
+    setSegment((width - GAP * (options.length - 1)) / options.length);
+  };
 
   return (
-    <View style={styles.track} accessibilityRole="radiogroup" accessibilityLabel={accessibilityLabel}>
+    <View
+      testID={testID}
+      style={styles.track}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={accessibilityLabel}
+      onLayout={glass ? measure : undefined}
+    >
+      {glass && segment > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.pill(segment), pill]}
+          testID={testID && `${testID}-pill`}
+        />
+      )}
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -52,11 +90,11 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="radio"
             accessibilityLabel={option.label}
             accessibilityState={{ checked: selected }}
-            // Unselected segments take the track's colour (not transparent) so the tint eases cleanly.
+            // Classic: unselected segments take the track's colour (not transparent) so the tint eases
+            // cleanly. Glass: segments are clear; the pill underneath is the selection.
             style={[
               styles.segment,
-              { backgroundColor: selected ? theme.colors.accentSoft : theme.colors.subtle },
-              tint,
+              !glass && [{ backgroundColor: selected ? theme.colors.accentSoft : theme.colors.subtle }, tint],
             ]}
           >
             <Crossfade
@@ -82,8 +120,8 @@ export function SegmentedControl<T extends string>({
 const styles = StyleSheet.create((theme) => ({
   track: {
     flexDirection: 'row',
-    gap: 2,
-    padding: 3,
+    gap: GAP,
+    padding: PAD,
     borderRadius: theme.radii.control,
     backgroundColor: theme.colors.subtle,
   },
@@ -92,6 +130,16 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.radii.control - 3,
+    borderRadius: theme.radii.control - PAD,
   },
+  pill: (width: number) => ({
+    position: 'absolute' as const,
+    left: PAD,
+    top: PAD,
+    bottom: PAD,
+    width,
+    borderRadius: theme.radii.control - PAD,
+    backgroundColor: theme.glass?.strong,
+    boxShadow: theme.glass?.card.shadow,
+  }),
 }));

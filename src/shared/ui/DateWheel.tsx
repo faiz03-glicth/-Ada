@@ -192,7 +192,8 @@ export function DateWheel({
         showsHorizontalScrollIndicator={false}
         snapToInterval={SLOT}
         decelerationRate="fast"
-        scrollEventThrottle={16}
+        // Every frame (120 Hz phones too): the swell follows the dates exactly, never a frame behind.
+        scrollEventThrottle={1}
         contentOffset={startOffset}
         onContentSizeChange={place}
         onScroll={onScroll}

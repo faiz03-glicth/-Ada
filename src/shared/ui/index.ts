@@ -7,6 +7,7 @@ export { Banner } from './Banner';
 export { BarChart } from './BarChart';
 export { Button } from './Button';
 export { Card } from './Card';
+export { BlurTarget, GlassBlur } from './GlassBlur';
 export { ChipRow, type ChipOption } from './Chip';
 export { ContentSwap } from './ContentSwap';
 export { DateWheel, type WheelDay } from './DateWheel';

@@ -110,6 +110,12 @@ export const motion = {
     fadeSlots: 3,
     tickGapMs: 35,
   },
+  /**
+   * scroll: a press that begins in something that scrolls waits `pressDelayMs` (Android's own tap timeout
+   * in scrolling lists): a touch that turns into a scroll within that time never presses, so starting a
+   * scroll on a card or a month doesn't dip it. A quick tap is still a tap (pressed and released at once).
+   */
+  scroll: { pressDelayMs: DURATION.quick },
   /** settle: something in a fixed frame moving to make room (a button gliding as the one below it goes). */
   settle: { durationMs: DURATION.normal },
   /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */
@@ -174,6 +180,17 @@ export const motion = {
    * released (`rise`), then settles back to its resting size (`settle`). Interruptible either way.
    */
   selection: { select: 1.08, deselect: 0.94, riseMs: DURATION.quick, settleMs: DURATION.normal },
+  /**
+   * segmentSlide: Liquid Glass's segmented controls, whose one frosted pill glides to the chosen segment.
+   * Soft and quick, with the faintest settle (damping ratio ≈ 0.8: no visible bounce); a new choice
+   * mid-glide redirects it from where it is. Reduce Motion makes it a jump.
+   */
+  segmentSlide: {
+    damping: 26,
+    stiffness: 320,
+    mass: 0.9,
+    reduceMotion: ReduceMotion.System,
+  } satisfies WithSpringConfig,
   press: { scale: 0.96, subtleScale: 0.985 },
   pulse: { scale: 1.45, durationMs: 600, repeats: 2 },
   /**

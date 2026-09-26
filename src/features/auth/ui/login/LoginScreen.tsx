@@ -23,7 +23,7 @@ export function LoginScreen({ intent }: { intent: AuthIntent }) {
   const showSkip = vm.showSkip && vm.step === 'providers';
 
   return (
-    <Screen scroll inset="wide" testID={`login-${intent}`} contentStyle={styles.content}>
+    <Screen scroll keyboard inset="wide" testID={`login-${intent}`} contentStyle={styles.content}>
       <NavBar
         onBack={vm.onBack}
         backDisabled={vm.busy}

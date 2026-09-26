@@ -24,7 +24,13 @@ export function CheckInSheet({ date }: { date: ISODate | null }) {
   const { theme } = useUnistyles();
 
   return (
-    <SheetLayout title="New check-in" subtitle={vm.subtitle} onClose={vm.onClose} testID="check-in-sheet">
+    <SheetLayout
+      keyboard
+      title="New check-in"
+      subtitle={vm.subtitle}
+      onClose={vm.onClose}
+      testID="check-in-sheet"
+    >
       <View style={styles.section}>
         <Text variant="caption" tone="secondary">
           What did you do?
