@@ -1,0 +1,2427 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Streak Field Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@600;700;800&display=swap"
+    />
+    <style>
+      /* Tokens: the app's own colours (src/theme/tokens/colors.ts, heatPalettes.ts meadow). */
+      :root {
+        color-scheme: light;
+        --canvas: #f2f5f1;
+        --surface: #fcfdfb;
+        --raised: #ffffff;
+        --subtle: #eaeee9;
+        --border: #dce2db;
+        --border2: #858f87;
+        --text: #101713;
+        --text2: #56625a;
+        --text3: #646f67;
+        --accent: #1e9a52;
+        --accent-soft: #e2f4e8;
+        --accent-text: #136b38;
+        --on-accent: #06140c;
+        --danger: #c9302f;
+        --danger-soft: #fbe9e9;
+        --warn: #a85a06;
+        --warn-soft: #fbf0dc;
+        --info: #1b5596;
+        --info-soft: #e3eef8;
+        --h0: #eaeee9;
+        --h1: #c3e8c9;
+        --h2: #7fd095;
+        --h3: #36aa62;
+        --h4: #146b3a;
+        --code-bg: #eef2ed;
+
+        --display: 'Schibsted Grotesk', 'Segoe UI', system-ui, sans-serif;
+        --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          color-scheme: dark;
+          --canvas: #0d100e;
+          --surface: #161a18;
+          --raised: #1c221e;
+          --subtle: #1e2320;
+          --border: #262c28;
+          --border2: #626d66;
+          --text: #edf2ee;
+          --text2: #a4aea7;
+          --text3: #838e86;
+          --accent-soft: #15301f;
+          --accent-text: #5fe3a1;
+          --danger: #ff7070;
+          --danger-soft: #3a1d1d;
+          --warn: #ffc46b;
+          --warn-soft: #3a2c14;
+          --info: #8cc4ff;
+          --info-soft: #17283a;
+          --h0: #1f2622;
+          --h1: #1a4a2f;
+          --h2: #1f7a45;
+          --h3: #34b267;
+          --h4: #6be8a4;
+          --code-bg: #1a1f1c;
+        }
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --canvas: #0d100e;
+        --surface: #161a18;
+        --raised: #1c221e;
+        --subtle: #1e2320;
+        --border: #262c28;
+        --border2: #626d66;
+        --text: #edf2ee;
+        --text2: #a4aea7;
+        --text3: #838e86;
+        --accent-soft: #15301f;
+        --accent-text: #5fe3a1;
+        --danger: #ff7070;
+        --danger-soft: #3a1d1d;
+        --warn: #ffc46b;
+        --warn-soft: #3a2c14;
+        --info: #8cc4ff;
+        --info-soft: #17283a;
+        --h0: #1f2622;
+        --h1: #1a4a2f;
+        --h2: #1f7a45;
+        --h3: #34b267;
+        --h4: #6be8a4;
+        --code-bg: #1a1f1c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font: 400 16px/1.6 var(--body);
+        padding-inline: 16px;
+        padding-block: 0 64px;
+      }
+      a {
+        color: var(--accent-text);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      code,
+      .mono {
+        font-family: var(--mono);
+        font-size: 0.86em;
+      }
+      code {
+        background: var(--code-bg);
+        padding: 0.1em 0.35em;
+        border-radius: 5px;
+        overflow-wrap: anywhere;
+      }
+
+      /* Layout: a rail of sections beside one reading column. */
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      @media (min-width: 980px) {
+        .shell {
+          grid-template-columns: 220px minmax(0, 1fr);
+        }
+      }
+      nav.rail {
+        display: none;
+      }
+      @media (min-width: 980px) {
+        nav.rail {
+          display: block;
+          position: sticky;
+          top: env(safe-area-inset-top, 0px);
+          align-self: start;
+          padding-top: 48px;
+          max-height: 100vh;
+          overflow-y: auto;
+        }
+      }
+      nav.rail ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 2px;
+        counter-reset: sec;
+      }
+      nav.rail a {
+        display: flex;
+        gap: 10px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        color: var(--text2);
+        text-decoration: none;
+        font-size: 14px;
+        counter-increment: sec;
+      }
+      nav.rail a::before {
+        content: counter(sec, decimal-leading-zero);
+        font: 500 12px/1.9 var(--mono);
+        color: var(--text3);
+      }
+      nav.rail a:hover {
+        background: var(--subtle);
+        color: var(--text);
+      }
+      .rail-label {
+        font: 600 11px/1 var(--body);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin: 0 10px 12px;
+      }
+
+      main {
+        min-width: 0;
+        max-width: 820px;
+      }
+      section {
+        padding-top: 56px;
+        display: grid;
+        gap: 18px;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        text-wrap: balance;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      h1 {
+        font-size: clamp(40px, 7vw, 64px);
+        line-height: 1.02;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      h2 {
+        font-size: clamp(26px, 3.4vw, 32px);
+        line-height: 1.15;
+        font-weight: 700;
+      }
+      h3 {
+        font-size: 18px;
+        line-height: 1.3;
+        font-weight: 700;
+      }
+      p {
+        margin: 0;
+        max-width: 66ch;
+      }
+      .lead {
+        font-size: 19px;
+        color: var(--text2);
+        max-width: 60ch;
+      }
+      .eyebrow {
+        font: 600 12px/1 var(--body);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-text);
+      }
+      .muted {
+        color: var(--text2);
+      }
+      .small {
+        font-size: 14px;
+      }
+
+      /* Hero */
+      header.hero {
+        padding-top: 48px;
+        display: grid;
+        gap: 20px;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        font-size: 13px;
+        color: var(--text3);
+      }
+      .meta b {
+        color: var(--text2);
+        font-weight: 500;
+      }
+
+      /* Heat cells: the app's own motif, used for status. */
+      .heat-legend {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text3);
+        flex-wrap: wrap;
+      }
+      .cell {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        flex: none;
+        display: inline-block;
+      }
+      .l0 {
+        background: var(--h0);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .l1 {
+        background: var(--h1);
+      }
+      .l2 {
+        background: var(--h2);
+      }
+      .l3 {
+        background: var(--h3);
+      }
+      .l4 {
+        background: var(--h4);
+      }
+
+      .status-map {
+        display: grid;
+        gap: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 20px;
+      }
+      .phase-row {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+      }
+      .phase-row .ph {
+        font: 500 12px/22px var(--mono);
+        color: var(--text3);
+      }
+      .phase-cells {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .feat {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 3px 9px 3px 4px;
+        border-radius: 7px;
+        background: var(--canvas);
+        font-size: 13px;
+        line-height: 16px;
+      }
+      .feat .cell {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Cards and grids */
+      .grid-2 {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        display: grid;
+        gap: 8px;
+        align-content: start;
+      }
+      .card h3 {
+        font-size: 16px;
+      }
+      .card p {
+        font-size: 14.5px;
+        color: var(--text2);
+      }
+      .files {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .files code {
+        font-size: 12px;
+      }
+
+      .callout {
+        border-radius: 14px;
+        padding: 14px 16px;
+        background: var(--accent-soft);
+        font-size: 15px;
+        display: grid;
+        gap: 6px;
+      }
+      .callout.warn {
+        background: var(--warn-soft);
+      }
+      .callout strong {
+        font-family: var(--display);
+      }
+
+      /* Stack chips */
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+      .stack-row {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 14px;
+        padding: 12px 0;
+        border-top: 1px solid var(--border);
+      }
+      .stack-row:first-child {
+        border-top: 0;
+      }
+      .stack-row dt {
+        font: 600 13px/1.5 var(--body);
+        color: var(--text2);
+      }
+      .stack-row dd {
+        margin: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .stack-row dd .what {
+        font-weight: 600;
+      }
+      .stack-row dd .why {
+        font-size: 14px;
+        color: var(--text2);
+      }
+      @media (max-width: 560px) {
+        .stack-row {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+      }
+
+      /* Layer diagram */
+      .layers {
+        display: grid;
+        gap: 0;
+        justify-items: stretch;
+      }
+      .layer {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px 16px;
+      }
+      .layer .name {
+        font: 700 15px/1.3 var(--display);
+      }
+      .layer .name small {
+        display: block;
+        font: 400 12px/1.4 var(--mono);
+        color: var(--text3);
+        margin-top: 2px;
+      }
+      .layer p {
+        font-size: 14px;
+        color: var(--text2);
+      }
+      .layer.remote {
+        border-style: dashed;
+        border-color: var(--border2);
+      }
+      .layer.split {
+        grid-template-columns: 1fr;
+      }
+      .split-inner {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+        gap: 10px;
+      }
+      .split-inner > div {
+        background: var(--canvas);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      .arrow {
+        height: 26px;
+        display: grid;
+        place-items: center;
+        color: var(--text3);
+        font: 500 12px/1 var(--mono);
+      }
+      .arrow::before {
+        content: '';
+        width: 2px;
+        height: 100%;
+        background: var(--border2);
+        grid-area: 1/1;
+      }
+      .arrow span {
+        grid-area: 1/1;
+        background: var(--canvas);
+        padding: 0 8px;
+      }
+      @media (max-width: 560px) {
+        .layer {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+      }
+
+      /* Steps */
+      ol.steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 0;
+        counter-reset: step;
+      }
+      ol.steps > li {
+        counter-increment: step;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 14px;
+        position: relative;
+        padding-bottom: 18px;
+      }
+      ol.steps > li::before {
+        content: counter(step);
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        background: var(--accent-soft);
+        color: var(--accent-text);
+        font: 700 13px/28px var(--display);
+        text-align: center;
+      }
+      ol.steps > li::after {
+        content: '';
+        position: absolute;
+        left: 13px;
+        top: 32px;
+        bottom: 4px;
+        width: 2px;
+        background: var(--border);
+      }
+      ol.steps > li:last-child::after {
+        display: none;
+      }
+      ol.steps > li:last-child {
+        padding-bottom: 0;
+      }
+      .step-body {
+        display: grid;
+        gap: 3px;
+        padding-top: 3px;
+      }
+      .step-body b {
+        font-weight: 600;
+      }
+      .step-body span {
+        font-size: 14.5px;
+        color: var(--text2);
+      }
+
+      /* Branches (session restore) */
+      .branches {
+        display: grid;
+        gap: 8px;
+      }
+      .branch {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        font-size: 14.5px;
+      }
+      .result {
+        font: 600 12px/1 var(--body);
+        padding: 6px 10px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .r-in {
+        background: var(--accent-soft);
+        color: var(--accent-text);
+      }
+      .r-guest {
+        background: var(--info-soft);
+        color: var(--info);
+      }
+      .r-out {
+        background: var(--subtle);
+        color: var(--text2);
+      }
+      @media (max-width: 480px) {
+        .branch {
+          grid-template-columns: 1fr;
+        }
+        .branch .result {
+          justify-self: start;
+        }
+      }
+
+      /* Tabs */
+      .tabs {
+        display: grid;
+        gap: 14px;
+      }
+      .tablist {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 4px;
+        background: var(--subtle);
+        border-radius: 12px;
+        width: fit-content;
+        max-width: 100%;
+      }
+      .tablist button {
+        font: 500 14px/1 var(--body);
+        color: var(--text2);
+        background: transparent;
+        border: 0;
+        border-radius: 9px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+      .tablist button[aria-selected='true'] {
+        background: var(--raised);
+        color: var(--text);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+
+      /* Storage */
+      .store {
+        display: grid;
+        gap: 10px;
+      }
+      .store-card {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .store-card .badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font: 800 15px/1 var(--display);
+        color: var(--on-accent);
+      }
+      .store-card h3 {
+        font-size: 16px;
+      }
+      .store-card p {
+        font-size: 14.5px;
+        color: var(--text2);
+      }
+      .kv {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        font-size: 13px;
+        color: var(--text3);
+        margin-top: 4px;
+      }
+      .kv b {
+        color: var(--text2);
+        font-weight: 600;
+      }
+
+      /* Tables */
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+        vertical-align: top;
+      }
+      thead th {
+        border-top: 0;
+        font: 600 12px/1.3 var(--body);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text3);
+        background: var(--canvas);
+      }
+      td code {
+        font-size: 12.5px;
+      }
+      .diff td:nth-child(2),
+      .diff td:nth-child(3) {
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+
+      /* Bugs */
+      .bugs {
+        display: grid;
+        gap: 8px;
+      }
+      details.bug {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      details.bug summary {
+        list-style: none;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+      }
+      details.bug summary::-webkit-details-marker {
+        display: none;
+      }
+      details.bug summary::after {
+        content: '+';
+        font: 500 18px/1 var(--mono);
+        color: var(--text3);
+      }
+      details.bug[open] summary::after {
+        content: '−';
+      }
+      .sev {
+        font: 600 11px/1 var(--body);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 5px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .sev-med {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .sev-low {
+        background: var(--subtle);
+        color: var(--text2);
+      }
+      .sev-sus {
+        background: var(--info-soft);
+        color: var(--info);
+      }
+      .bug-title {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .bug-title .id {
+        font: 500 12px var(--mono);
+        color: var(--text3);
+        margin-right: 6px;
+      }
+      .bug-body {
+        padding: 0 16px 16px;
+        display: grid;
+        gap: 8px;
+        font-size: 14.5px;
+      }
+      .bug-body dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 6px 12px;
+      }
+      .bug-body dt {
+        color: var(--text3);
+        font-size: 13px;
+      }
+      .bug-body dd {
+        margin: 0;
+      }
+      @media (max-width: 520px) {
+        .bug-body dl {
+          grid-template-columns: 1fr;
+          gap: 2px;
+        }
+        .bug-body dd {
+          margin-bottom: 8px;
+        }
+      }
+
+      /* Optimisation columns */
+      .opt-cols {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+      }
+      .opt-cols ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+      .opt-cols li {
+        font-size: 14.5px;
+        display: grid;
+        gap: 2px;
+      }
+      .opt-cols li b {
+        font-weight: 600;
+      }
+      .opt-cols li span {
+        color: var(--text2);
+        font-size: 13.5px;
+      }
+      .tag {
+        font: 600 11px/1 var(--body);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 5px 8px;
+        border-radius: 6px;
+        width: fit-content;
+      }
+      .t-done {
+        background: var(--accent-soft);
+        color: var(--accent-text);
+      }
+      .t-todo {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+
+      /* Commands */
+      .cmds {
+        display: grid;
+        gap: 6px;
+      }
+      .cmd {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px 8px 8px 14px;
+      }
+      .cmd .what {
+        font-size: 13px;
+        color: var(--text3);
+      }
+      .cmd code {
+        background: none;
+        padding: 0;
+        font-size: 13.5px;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .copy {
+        font: 500 13px/1 var(--body);
+        border: 1px solid var(--border);
+        background: var(--raised);
+        color: var(--text2);
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+      .copy:hover {
+        color: var(--text);
+        border-color: var(--border2);
+      }
+
+      /* Glossary */
+      .search {
+        width: 100%;
+        font: 400 15px/1 var(--body);
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border2);
+        background: var(--raised);
+        color: var(--text);
+      }
+      .gloss {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+      }
+      .term {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        display: grid;
+        gap: 4px;
+        align-content: start;
+      }
+      .term dt {
+        font: 700 15px/1.3 var(--display);
+      }
+      .term dd {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text2);
+      }
+      .term dd.here {
+        color: var(--text);
+      }
+      .term dd.here::before {
+        content: 'In Streak: ';
+        font-weight: 600;
+        color: var(--accent-text);
+      }
+      .empty {
+        color: var(--text3);
+        font-size: 14px;
+      }
+
+      /* Where-is index */
+      .where {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+        gap: 0 24px;
+      }
+      .where div {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1px;
+        padding: 9px 0;
+        border-top: 1px solid var(--border);
+      }
+      .where span {
+        font-size: 13px;
+        color: var(--text3);
+      }
+      .where code {
+        background: none;
+        padding: 0;
+        font-size: 13px;
+      }
+
+      section > *,
+      .term,
+      .kv span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      footer {
+        margin-top: 64px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="rail" aria-label="Sections">
+        <p class="rail-label">Streak field guide</p>
+        <ol>
+          <li><a href="#status">Where it stands</a></li>
+          <li><a href="#stack">The stack</a></li>
+          <li><a href="#layers">How it connects</a></li>
+          <li><a href="#boot">Launch</a></li>
+          <li><a href="#auth">Signing in</a></li>
+          <li><a href="#data">Where data lives</a></li>
+          <li><a href="#db">Database</a></li>
+          <li><a href="#bugs">Bugs</a></li>
+          <li><a href="#perf">Performance</a></li>
+          <li><a href="#rules">Rules not to break</a></li>
+          <li><a href="#commands">Commands</a></li>
+          <li><a href="#where">Where things are</a></li>
+          <li><a href="#glossary">Glossary</a></li>
+          <li><a href="#unknowns">Unknowns</a></li>
+        </ol>
+      </nav>
+
+      <main>
+        <header class="hero">
+          <span class="eyebrow">Project memory · explained</span>
+          <h1>Streak, and how it's built</h1>
+          <p class="lead">
+            A habit app where every check-in darkens today's square on a heatmap. This guide explains the code
+            as it stands: what's finished, how the pieces talk to each other, where the data goes, and what to
+            check first when something breaks.
+          </p>
+          <div class="meta">
+            <span><b>Snapshot</b> main @ 20ff7cc</span>
+            <span><b>Date</b> 26 Sep 2026</span>
+            <span><b>Checks</b> typecheck ✓ · lint ✓ · 464 tests ✓</span>
+            <span><b>Full reference</b> docs/PROJECT_MEMORY.md</span>
+          </div>
+          <div class="heat-legend" aria-label="Heatmap intensity legend">
+            <span>Intensity</span>
+            <span class="cell l0"></span>0 <span class="cell l1"></span>1 <span class="cell l2"></span>2–3
+            <span class="cell l3"></span>4–5 <span class="cell l4"></span>6+ check-ins a day
+          </div>
+        </header>
+
+        <!-- STATUS -->
+        <section id="status">
+          <span class="eyebrow">01 · Where it stands</span>
+          <h2>The foundation is done. The product itself isn't built yet.</h2>
+          <p>
+            Each square below is a piece of the plan, shaded like a heatmap day: dark means built, mid means
+            partly built, empty means not started. Phases 0 and 1 are complete. Every tab except Profile still
+            shows a "Coming in Phase N" placeholder.
+          </p>
+          <div class="status-map" role="list">
+            <div class="phase-row" role="listitem">
+              <span class="ph">Phase 0</span>
+              <div class="phase-cells">
+                <span class="feat"><span class="cell l4"></span>Boot + error screen</span>
+                <span class="feat"><span class="cell l4"></span>Theme &amp; glass</span>
+                <span class="feat"><span class="cell l4"></span>SQLite + Drizzle</span>
+                <span class="feat"><span class="cell l4"></span>Supabase client</span>
+                <span class="feat"><span class="cell l4"></span>Query cache</span>
+                <span class="feat"><span class="cell l4"></span>DI container</span>
+                <span class="feat"><span class="cell l4"></span>UI kit</span>
+                <span class="feat"><span class="cell l4"></span>Every route</span>
+              </div>
+            </div>
+            <div class="phase-row" role="listitem">
+              <span class="ph">Phase 1</span>
+              <div class="phase-cells">
+                <span class="feat"><span class="cell l4"></span>Apple · Google · email · guest</span>
+                <span class="feat"><span class="cell l4"></span>Offline session restore</span>
+                <span class="feat"><span class="cell l4"></span>Onboarding</span>
+                <span class="feat"><span class="cell l4"></span>Motion, haptics, sound</span>
+                <span class="feat"><span class="cell l2"></span>Profile tab</span>
+                <span class="feat"><span class="cell l2"></span>Settings (Appearance only)</span>
+              </div>
+            </div>
+            <div class="phase-row" role="listitem">
+              <span class="ph">Phase 2</span>
+              <div class="phase-cells">
+                <span class="feat"><span class="cell l1"></span>Heatmap component</span>
+                <span class="feat"><span class="cell l0"></span>Activities table</span>
+                <span class="feat"><span class="cell l0"></span>Check-ins</span>
+                <span class="feat"><span class="cell l0"></span>Home heatmap</span>
+                <span class="feat"><span class="cell l0"></span>Day sheet</span>
+              </div>
+            </div>
+            <div class="phase-row" role="listitem">
+              <span class="ph">Phase 3–6</span>
+              <div class="phase-cells">
+                <span class="feat"><span class="cell l0"></span>Insights · History</span>
+                <span class="feat"><span class="cell l0"></span>Account settings</span>
+                <span class="feat"><span class="cell l0"></span>Sync engine</span>
+                <span class="feat"><span class="cell l0"></span>Reminders</span>
+              </div>
+            </div>
+          </div>
+          <div class="callout warn">
+            <strong>Uncommitted work in your tree right now</strong>
+            <span class="small"
+              >Another session changed 9 files that aren't described here yet: a 1-second budget on session
+              restore (a returning user continues on their local profile if Supabase is slow), only an
+              explicit <code>SIGNED_OUT</code> ending a session, and icons imported one file at a time to
+              shrink the bundle.</span
+            >
+          </div>
+        </section>
+
+        <!-- STACK -->
+        <section id="stack">
+          <span class="eyebrow">02 · The stack</span>
+          <h2>One job per technology</h2>
+          <p>
+            Several libraries sound like they overlap. This list says which one is actually responsible for
+            each job.
+          </p>
+          <dl class="stack card">
+            <div class="stack-row">
+              <dt>App runtime</dt>
+              <dd>
+                <span class="what">Expo SDK 57 · React Native 0.86 · React 19 · TypeScript (strict)</span
+                ><span class="why"
+                  >Runs in a development build, not Expo Go, because it uses native modules like audio and
+                  Google Sign-In.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Screens &amp; navigation</dt>
+              <dd>
+                <span class="what">Expo Router with typed routes</span
+                ><span class="why"
+                  >Every file in <code>app/</code> is a screen. Two groups, <code>(auth)</code> and
+                  <code>(app)</code>, are switched by guards, not by navigation calls.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>The truth (on phone)</dt>
+              <dd>
+                <span class="what">SQLite (expo-sqlite) through Drizzle ORM</span
+                ><span class="why"
+                  >The app reads from here first. It works offline and it's the only store guests have.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Backend</dt>
+              <dd>
+                <span class="what">Supabase: Auth + Postgres behind row-level security</span
+                ><span class="why"
+                  >There's no server code of your own. The app calls Supabase directly with supabase-js.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Server data in memory</dt>
+              <dd>
+                <span class="what">TanStack Query</span
+                ><span class="why"
+                  >Holds fetched data for 30 seconds, retries only network failures, and refetches when you
+                  reopen the app. Nothing is saved to disk.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>App state</dt>
+              <dd>
+                <span class="what">Zustand, saved to a synchronous SQLite key/value store</span
+                ><span class="why"
+                  >Sign-in status, onboarding progress, theme and sound choices. Because it loads
+                  synchronously, the first frame already knows where to go.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Styling</dt>
+              <dd>
+                <span class="what">Unistyles 3, built from design tokens</span
+                ><span class="why"
+                  >Light, dark, the "glass" look and 4 heat palettes, all from one theme builder.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Motion</dt>
+              <dd>
+                <span class="what">Reanimated 4 + Worklets</span
+                ><span class="why"
+                  >Every animation runs on the UI thread and takes its timing from one tokens file.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Feedback</dt>
+              <dd>
+                <span class="what">expo-haptics · expo-audio · sonner-native toasts</span
+                ><span class="why">The sounds are generated from the same numbers as the animations.</span>
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Validation</dt>
+              <dd>
+                <span class="what">zod</span
+                ><span class="why"
+                  >Checks env values at launch, email input, and every row Supabase sends back.</span
+                >
+              </dd>
+            </div>
+            <div class="stack-row">
+              <dt>Quality &amp; builds</dt>
+              <dd>
+                <span class="what"
+                  >Jest + Testing Library · Maestro · ESLint · Prettier · GitLab CI · EAS Build</span
+                ><span class="why">npm with Node 24. CI fails on any lint warning.</span>
+              </dd>
+            </div>
+          </dl>
+          <p class="small muted">
+            Installed but never imported by app code: <code>date-fns</code>, <code>expo-blur</code>,
+            <code>expo-glass-effect</code>. No analytics, crash reporting or over-the-air updates yet.
+          </p>
+        </section>
+
+        <!-- LAYERS -->
+        <section id="layers">
+          <span class="eyebrow">03 · How it connects</span>
+          <h2>Six layers, each allowed to talk only to the one below</h2>
+          <p>
+            This is MVVM with repositories. ESLint enforces the boundaries: a screen that imports Supabase or
+            a store directly fails the lint job.
+          </p>
+          <div class="layers">
+            <div class="layer">
+              <div class="name">Route<small>app/**</small></div>
+              <p>Thin files. Parse the URL params and render a feature screen. No styles live here.</p>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>renders</span></div>
+            <div class="layer">
+              <div class="name">View<small>features/*/ui/*Screen.tsx · shared/ui</small></div>
+              <p>Draws the screen and forwards taps. Knows nothing about data or navigation.</p>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>asks</span></div>
+            <div class="layer">
+              <div class="name">ViewModel<small>use*ViewModel.ts</small></div>
+              <p>Screen logic as a hook: returns the values and handlers the View needs.</p>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>calls</span></div>
+            <div class="layer split">
+              <div class="split-inner">
+                <div>
+                  <div class="name">Actions<small>shared/actions</small></div>
+                  <p class="small muted">
+                    The only code that navigates. Also sign-out and finishing onboarding.
+                  </p>
+                </div>
+                <div>
+                  <div class="name">Hooks<small>useProfile · useAuthMutations</small></div>
+                  <p class="small muted">Wrap repositories in TanStack Query and Zustand.</p>
+                </div>
+              </div>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>through</span></div>
+            <div class="layer">
+              <div class="name">Repository<small>wired in core/di.ts</small></div>
+              <p>
+                <code>SupabaseAuthRepository</code> coordinates sign-in.
+                <code>LocalFirstProfileRepository</code> reads SQLite first, then Supabase.
+              </p>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>uses</span></div>
+            <div class="layer split">
+              <div class="split-inner">
+                <div>
+                  <div class="name">Local DAOs<small>data/local</small></div>
+                  <p class="small muted">Drizzle queries on streak.db.</p>
+                </div>
+                <div>
+                  <div class="name">Remote APIs<small>data/remote</small></div>
+                  <p class="small muted">supabase-js calls. Errors mapped to app errors.</p>
+                </div>
+                <div>
+                  <div class="name">Services<small>data/services</small></div>
+                  <p class="small muted">Apple, Google and crypto SDK wrappers.</p>
+                </div>
+              </div>
+            </div>
+            <div class="arrow" aria-hidden="true"><span>network</span></div>
+            <div class="layer remote">
+              <div class="name">Supabase<small>outside the app</small></div>
+              <p>
+                Auth (sign-in, tokens) and the <code>profiles</code> table, where each person can only touch
+                their own row.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- BOOT -->
+        <section id="boot">
+          <span class="eyebrow">04 · Launch</span>
+          <h2>What happens between tapping the icon and the first screen</h2>
+          <p>
+            The splash stays up until the app knows exactly where to send you, so it never flashes the wrong
+            screen.
+          </p>
+          <ol class="steps">
+            <li>
+              <div class="step-body">
+                <b>Theme is ready before anything draws</b
+                ><span
+                  >Saved theme choices load synchronously and Unistyles is configured (<code>index.ts</code> →
+                  <code>theme/unistyles.ts</code>).</span
+                >
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Three checks run in parallel, splash held</b
+                ><span
+                  >Env values valid? Fonts loaded? Local database migrated? The first failure shows a readable
+                  error screen instead of the app (<code>BootGate</code>).</span
+                >
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Repositories are created once</b
+                ><span
+                  >The Supabase client and Google Sign-In are set up only now, so a bad
+                  <code>.env</code> can't crash the app at import (<code>RepositoriesProvider</code>).</span
+                >
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>The session is restored</b
+                ><span
+                  >Signed in, guest, or signed out? See the decision below (<code>SessionGate</code> →
+                  <code>restoreSession</code>).</span
+                >
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Splash hides, guards pick the screen</b
+                ><span>In a session and onboarded → the app. Otherwise → onboarding or login.</span>
+              </div>
+            </li>
+          </ol>
+
+          <h3>Session restore: how the app decides who you are</h3>
+          <div class="branches">
+            <div class="branch">
+              <span>Supabase has a valid session (it may refresh the token first)</span
+              ><span class="result r-in">Signed in</span>
+            </div>
+            <div class="branch">
+              <span>Offline and the token expired → use the last signed-in user's local profile</span
+              ><span class="result r-in">Signed in, offline</span>
+            </div>
+            <div class="branch">
+              <span>No session, but <code>guest_id</code> exists and <code>guest_active = 1</code></span
+              ><span class="result r-guest">Guest</span>
+            </div>
+            <div class="branch">
+              <span>None of the above, or an unexpected error</span
+              ><span class="result r-out">Signed out</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- AUTH -->
+        <section id="auth">
+          <span class="eyebrow">05 · Signing in</span>
+          <h2>Four ways in, one shared ending</h2>
+          <p>
+            There are no passwords anywhere. Whichever provider you use, a successful sign-in ends with the
+            same steps, and the route guard moves you on without any navigation call.
+          </p>
+          <div class="tabs" data-tabs>
+            <div class="tablist" role="tablist" aria-label="Sign-in method">
+              <button role="tab" id="tab-apple" aria-controls="p-apple" aria-selected="true">Apple</button>
+              <button role="tab" id="tab-google" aria-controls="p-google" aria-selected="false" tabindex="-1">
+                Google
+              </button>
+              <button role="tab" id="tab-email" aria-controls="p-email" aria-selected="false" tabindex="-1">
+                Email code
+              </button>
+              <button role="tab" id="tab-guest" aria-controls="p-guest" aria-selected="false" tabindex="-1">
+                Guest
+              </button>
+            </div>
+            <div role="tabpanel" id="p-apple" aria-labelledby="tab-apple">
+              <ol class="steps">
+                <li>
+                  <div class="step-body">
+                    <b>Make a random nonce</b
+                    ><span
+                      >32 random bytes. Apple gets its SHA-256; Supabase gets the raw value to check the token
+                      against.</span
+                    >
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Native Apple sheet</b
+                    ><span>iOS only. The button is hidden where Apple sign-in isn't available.</span>
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Supabase signs in with the ID token</b
+                    ><span><code>signInWithIdToken('apple', token, nonce)</code></span>
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Save the name straight away</b
+                    ><span
+                      >Apple sends your name only on the very first sign-in, so it's written to Supabase and
+                      the local profile immediately. Failures here never block sign-in.</span
+                    >
+                  </div>
+                </li>
+              </ol>
+            </div>
+            <div role="tabpanel" id="p-google" aria-labelledby="tab-google" hidden>
+              <ol class="steps">
+                <li>
+                  <div class="step-body"><b>Check Play services</b><span>Android only.</span></div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Native Google picker</b><span>Cancelling is silent: no error banner.</span>
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Supabase signs in with the ID token</b
+                    ><span
+                      >No nonce. Supabase's "Skip nonce check" must be on. On Android the signing key's SHA-1
+                      must be registered in Google Cloud.</span
+                    >
+                  </div>
+                </li>
+              </ol>
+            </div>
+            <div role="tabpanel" id="p-email" aria-labelledby="tab-email" hidden>
+              <ol class="steps">
+                <li>
+                  <div class="step-body">
+                    <b>Validate the address</b
+                    ><span
+                      >Trimmed and lower-cased, then checked with zod. "Send code" stays disabled until it's
+                      valid.</span
+                    >
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Supabase emails a 6-digit code</b
+                    ><span>The account is created on first use. A resend cooldown starts.</span>
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Sixth digit submits automatically</b
+                    ><span>A wrong or expired code shows a message under the field, not a banner.</span>
+                  </div>
+                </li>
+              </ol>
+            </div>
+            <div role="tabpanel" id="p-guest" aria-labelledby="tab-guest" hidden>
+              <ol class="steps">
+                <li>
+                  <div class="step-body">
+                    <b>No network at all</b
+                    ><span>"Skip" on the login screen, or finishing onboarding while signed out.</span>
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>Reuse or create a guest id</b
+                    ><span
+                      >Stored in <code>app_meta</code> as <code>guest_id</code>, with
+                      <code>guest_active = 1</code>.</span
+                    >
+                  </div>
+                </li>
+                <li>
+                  <div class="step-body">
+                    <b>A local-only profile row</b
+                    ><span
+                      ><code>provider = 'guest'</code>, <code>user_id = NULL</code>. Logging out keeps the
+                      data so the guest can resume.</span
+                    >
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>The shared ending (<code>completeSignIn</code>)</h3>
+            <ol class="steps">
+              <li>
+                <div class="step-body">
+                  <b>Save the profile locally</b
+                  ><span
+                    >An upsert that never erases a name or photo the provider didn't send this time.</span
+                  >
+                </div>
+              </li>
+              <li>
+                <div class="step-body">
+                  <b>Hand over guest data</b
+                  ><span
+                    >If a guest was using the phone, their rows move to the new account in one transaction and
+                    the guest profile is retired.</span
+                  >
+                </div>
+              </li>
+              <li>
+                <div class="step-body">
+                  <b>Remember who signed in</b
+                  ><span><code>last_user_id</code> is saved so the app can restore you offline.</span>
+                </div>
+              </li>
+              <li>
+                <div class="step-body">
+                  <b>Update the store</b
+                  ><span
+                    >Status becomes signed in. The guard sends a new account to onboarding and a returning one
+                    to Home with a "Signed in with …" toast.</span
+                  >
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <h3>Logging out</h3>
+          <p class="muted">
+            A native confirm, then: a guest only clears <code>guest_active</code>, and a member signs out of
+            Google, then Supabase (this device only), then forgets <code>last_user_id</code>. On success the
+            query cache is cleared and the guard shows Login. Offline, logout fails with "You're offline".
+          </p>
+        </section>
+
+        <!-- DATA -->
+        <section id="data">
+          <span class="eyebrow">06 · Where data lives</span>
+          <h2>Four stores, and why each one exists</h2>
+          <p>This is the caching setup. Each store has one job, so nothing is saved in two places.</p>
+          <div class="store">
+            <div class="store-card">
+              <span class="badge" style="background: var(--h4); color: var(--canvas)">DB</span>
+              <div>
+                <h3>SQLite database · <span class="mono">streak.db</span></h3>
+                <p>
+                  The source of truth. Profiles and device bookkeeping. The screen reads here first, so it's
+                  instant and works offline.
+                </p>
+                <div class="kv">
+                  <span><b>Lasts</b> until the app is deleted</span
+                  ><span><b>Code</b> core/db, data/local</span>
+                </div>
+              </div>
+            </div>
+            <div class="store-card">
+              <span class="badge" style="background: var(--h3)">Q</span>
+              <div>
+                <h3>TanStack Query cache</h3>
+                <p>
+                  In-memory copy of what the screen shows. Fresh for 30 seconds. Refetches when you reopen the
+                  app or come back online. Sign-in marks the profile stale; sign-out wipes it.
+                </p>
+                <div class="kv">
+                  <span><b>Lasts</b> until the app closes</span
+                  ><span><b>Code</b> core/query, useProfile.ts</span>
+                </div>
+              </div>
+            </div>
+            <div class="store-card">
+              <span class="badge" style="background: var(--h2)">KV</span>
+              <div>
+                <h3>Preferences key/value store</h3>
+                <p>
+                  Zustand stores saved to <code>expo-sqlite/kv-store</code>: onboarding progress, theme,
+                  reduce motion, sound. Read synchronously, so the first frame is already right.
+                </p>
+                <div class="kv">
+                  <span><b>Keys</b> streak.auth · streak.theme-preferences · streak.sound-preferences</span>
+                </div>
+              </div>
+            </div>
+            <div class="store-card">
+              <span class="badge" style="background: var(--h1)">🔒</span>
+              <div>
+                <h3>Encrypted session</h3>
+                <p>
+                  Supabase's login tokens. A fresh AES key goes in the phone's secure keystore; the encrypted
+                  session goes in AsyncStorage (the keystore can only hold about 2 KB). Tokens refresh only
+                  while the app is open.
+                </p>
+                <div class="kv">
+                  <span><b>Code</b> core/supabase/LargeSecureStore.ts</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3>How a profile reaches the screen</h3>
+          <ol class="steps">
+            <li>
+              <div class="step-body"><b>Read SQLite</b><span>Shown immediately, even offline.</span></div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>If online and not a guest, fetch from Supabase</b
+                ><span>The response is checked with zod before use.</span>
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Unless the local row has unsaved edits</b
+                ><span>A <code>dirty</code> row wins and the server copy is ignored.</span>
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Write SQLite, update the cache</b><span>The screen re-renders with the fresh data.</span>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <!-- DATABASE -->
+        <section id="db">
+          <span class="eyebrow">07 · Database</span>
+          <h2>Two tables on the phone, one on the server</h2>
+          <div class="grid-2">
+            <div class="card">
+              <h3><span class="mono">profiles</span> · phone</h3>
+              <p>
+                One row per person. <code>id</code> is the Supabase user id, or a random id for a guest.
+                Carries the sync columns every future table will have: <code>user_id</code>,
+                <code>created_at</code>, <code>updated_at</code>, <code>deleted_at</code> (soft delete) and
+                <code>dirty</code> (unsaved edits).
+              </p>
+            </div>
+            <div class="card">
+              <h3><span class="mono">app_meta</span> · phone</h3>
+              <p>
+                Device bookkeeping, never synced: <code>guest_id</code>, <code>guest_active</code>,
+                <code>last_user_id</code>, and <code>last_pulled_at</code> (reserved for the Phase 5 sync).
+              </p>
+            </div>
+            <div class="card">
+              <h3><span class="mono">public.profiles</span> · Supabase</h3>
+              <p>
+                Created automatically by a trigger when someone signs up. Each person can read, create and
+                update only their own row. There's no delete permission; account deletion is planned for a
+                server function.
+              </p>
+            </div>
+          </div>
+          <p>
+            There are no indexes beyond primary keys and no foreign keys on the phone yet. That's fine for two
+            tiny tables, but it needs attention when check-ins arrive.
+          </p>
+          <h3>Where the phone and server disagree</h3>
+          <p class="muted small">These differences will cause errors once the sync engine exists.</p>
+          <div class="table-wrap">
+            <table class="diff">
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Phone</th>
+                  <th>Server</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>provider</td>
+                  <td>also allows guest</td>
+                  <td>apple · google · email</td>
+                </tr>
+                <tr>
+                  <td>time_zone</td>
+                  <td>required</td>
+                  <td>optional</td>
+                </tr>
+                <tr>
+                  <td>username</td>
+                  <td>not unique</td>
+                  <td>unique</td>
+                </tr>
+                <tr>
+                  <td>user_id, dirty</td>
+                  <td>present</td>
+                  <td>absent</td>
+                </tr>
+                <tr>
+                  <td>timestamps</td>
+                  <td>text</td>
+                  <td>timestamptz</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>The one transaction</h3>
+          <p>
+            When a guest signs in, <code>reassignGuestData</code> gives the guest profile the new user id,
+            marks it deleted, and removes the guest keys, all or nothing. When activities and check-ins are
+            added, they must be moved in this same transaction.
+          </p>
+        </section>
+
+        <!-- BUGS -->
+        <section id="bugs">
+          <span class="eyebrow">08 · Bugs</span>
+          <h2>Nothing critical, four worth fixing soon</h2>
+          <p>
+            Found by reading the code; none were reproduced on a device. Open one to see the cause and the
+            fix.
+          </p>
+          <div class="bugs">
+            <details class="bug">
+              <summary>
+                <span class="sev sev-med">Medium</span>
+                <span class="bug-title"
+                  ><span class="id">B1</span>Offline profile edits are never retried</span
+                >
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>What you'd see</dt>
+                  <dd>
+                    A name change made offline never reaches the server, and later server changes never reach
+                    the phone.
+                  </dd>
+                  <dt>Cause</dt>
+                  <dd>
+                    A failed push leaves the row marked <code>dirty</code>. Nothing re-pushes it until the
+                    Phase 5 sync engine, and dirty rows block server updates.
+                  </dd>
+                  <dt>Fix</dt>
+                  <dd>Push dirty rows on reconnect or when the app opens.</dd>
+                  <dt>Files</dt>
+                  <dd><code>LocalFirstProfileRepository.ts</code></dd>
+                </dl>
+              </div>
+            </details>
+            <details class="bug">
+              <summary>
+                <span class="sev sev-med">Medium</span>
+                <span class="bug-title"><span class="id">P1</span>You can't log out while offline</span>
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>What you'd see</dt>
+                  <dd>
+                    "You're offline" and you stay signed in, but Google's account choice has already been
+                    cleared.
+                  </dd>
+                  <dt>Cause</dt>
+                  <dd>
+                    Google sign-out runs before Supabase sign-out, and a network failure is treated as a
+                    failed logout.
+                  </dd>
+                  <dt>Fix</dt>
+                  <dd>Clear the local session anyway, or sign out of Google only after Supabase succeeds.</dd>
+                  <dt>Files</dt>
+                  <dd><code>SupabaseAuthRepository.ts</code>, <code>shared/actions/session.ts</code></dd>
+                </dl>
+              </div>
+            </details>
+            <details class="bug">
+              <summary>
+                <span class="sev sev-med">Medium</span>
+                <span class="bug-title"
+                  ><span class="id">P2</span>A database failure at startup would crash, not show the error
+                  screen</span
+                >
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>Cause</dt>
+                  <dd>
+                    The database is opened when the file is imported, before the boot error screen exists.
+                  </dd>
+                  <dt>Fix</dt>
+                  <dd>Open it inside the migrations boot task, or wrap it in a try.</dd>
+                  <dt>Files</dt>
+                  <dd><code>core/db/client.ts</code></dd>
+                </dl>
+              </div>
+            </details>
+            <details class="bug">
+              <summary>
+                <span class="sev sev-med">Medium</span>
+                <span class="bug-title"
+                  ><span class="id">B4</span>Onboarding picks aren't saved as real data</span
+                >
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>Cause</dt>
+                  <dd>
+                    The chosen activities and reminder setting live only in the saved onboarding draft. No
+                    activities table exists yet.
+                  </dd>
+                  <dt>Fix</dt>
+                  <dd>Phase 2 creates activity rows from the draft when onboarding finishes.</dd>
+                </dl>
+              </div>
+            </details>
+            <details class="bug">
+              <summary>
+                <span class="sev sev-sus">Suspected</span>
+                <span class="bug-title"
+                  ><span class="id">S1</span>Session can be lost if the app dies mid-save</span
+                >
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>Cause</dt>
+                  <dd>
+                    The new key is written before the encrypted session. If the app is killed between the two,
+                    the next read decrypts garbage and you're signed out.
+                  </dd>
+                  <dt>Fix</dt>
+                  <dd>
+                    Version the key or add an integrity check, and treat a failed decrypt as "no session".
+                  </dd>
+                </dl>
+              </div>
+            </details>
+            <details class="bug">
+              <summary>
+                <span class="sev sev-low">Low</span>
+                <span class="bug-title"><span class="id">B2 B3 B5</span>Housekeeping</span>
+              </summary>
+              <div class="bug-body">
+                <dl>
+                  <dt>B2</dt>
+                  <dd>GitHub mirror is 7 commits behind GitLab.</dd>
+                  <dt>B3</dt>
+                  <dd>AGENTS.md says routes are in <code>src/app/</code>; they're in <code>app/</code>.</dd>
+                  <dt>B5</dt>
+                  <dd>
+                    Palette and glass/classic style exist in the theme but nothing in the app lets you pick
+                    them.
+                  </dd>
+                </dl>
+              </div>
+            </details>
+          </div>
+          <h3>Already fixed (and why the fix looks the way it does)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Problem</th>
+                  <th>Fix</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Blank tabs after toggling Reduce Motion</td>
+                  <td>Tabs always cross-fade. Switching them to "no animation" remounts every tab on iOS.</td>
+                </tr>
+                <tr>
+                  <td>Light mode looked static; theme change flashed white</td>
+                  <td>
+                    The heatmap reveal animates only size and opacity; the theme veil uses the colour already
+                    on screen.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Typed routes broke on Windows</td>
+                  <td>
+                    <code>scripts/generate-route-types.js</code>, run by <code>npm run typecheck</code>.
+                  </td>
+                </tr>
+                <tr>
+                  <td>A swipe starting on a button pressed it</td>
+                  <td>Presses inside the pager wait 100 ms (<code>PressDelay</code>).</td>
+                </tr>
+                <tr>
+                  <td>Pager jumped mid-drag</td>
+                  <td>The scroll position is set once; the page only changes after it lands.</td>
+                </tr>
+                <tr>
+                  <td>Old dev builds crashed on sound</td>
+                  <td>expo-audio is loaded only if the native module exists.</td>
+                </tr>
+                <tr>
+                  <td>Toasts lingered into the next session</td>
+                  <td>Changing user, or leaving the app, clears all toasts.</td>
+                </tr>
+                <tr>
+                  <td>White flash behind screen transitions</td>
+                  <td>The navigator gets the app's canvas colour.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- PERF -->
+        <section id="perf">
+          <span class="eyebrow">09 · Performance</span>
+          <h2>What's already fast, and what to do before Phase 2 gets heavy</h2>
+          <div class="opt-cols">
+            <div class="card">
+              <span class="tag t-done">Implemented</span>
+              <ul>
+                <li><b>No wrong-screen flash</b><span>Synchronous saved state and a held splash.</span></li>
+                <li><b>Parallel boot checks</b><span>Env, fonts and migrations at once.</span></li>
+                <li>
+                  <b>Smooth motion</b
+                  ><span
+                    >UI-thread animation, transform and opacity only, memoised pages and heatmap cells.</span
+                  >
+                </li>
+                <li><b>Cheap theme change</b><span>One fading veil; nothing re-renders per frame.</span></li>
+                <li>
+                  <b>Quiet network</b
+                  ><span
+                    >Retry only network failures, refetch on reopen, never poll. Guests never hit the
+                    network.</span
+                  >
+                </li>
+                <li><b>Battery</b><span>Token refresh only while the app is open.</span></li>
+                <li>
+                  <b>Smaller app</b
+                  ><span>5 font weights, smaller icons, arm64-only preview APK with R8 shrinking.</span>
+                </li>
+                <li><b>Sounds on cue</b><span>Players preloaded and kept.</span></li>
+              </ul>
+            </div>
+            <div class="card">
+              <span class="tag t-todo">Recommended</span>
+              <ul>
+                <li>
+                  <b>Indexes for check-ins</b
+                  ><span>e.g. on <code>(user_id, date)</code>, added with the table.</span>
+                </li>
+                <li>
+                  <b>Count days in SQL</b
+                  ><span
+                    >Queries run on the JS thread; aggregate with <code>GROUP BY</code> and fetch only the
+                    visible range.</span
+                  >
+                </li>
+                <li>
+                  <b>Use or drop the change listener</b><span>It's on, but no live queries use it.</span>
+                </li>
+                <li>
+                  <b>One key/value engine</b
+                  ><span>Move the session off AsyncStorage onto the SQLite store.</span>
+                </li>
+                <li><b>Compress sounds</b><span>~336 KB of WAV could be AAC.</span></li>
+                <li>
+                  <b>Longer remote profile freshness</b><span>5–10 minutes instead of 30 seconds.</span>
+                </li>
+                <li>
+                  <b>Crash reporting</b><span>Three <code>TODO(Sentry)</code> spots are waiting.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- RULES -->
+        <section id="rules">
+          <span class="eyebrow">10 · Rules not to break</span>
+          <h2>Things that look odd but are deliberate</h2>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Don't navigate after sign-in or sign-out</h3>
+              <p>
+                Change the store; the route guards move people. A <code>router.replace</code> would race with
+                them.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Only <code>shared/actions</code> touches the router</h3>
+              <p>Paths are written in <code>routes.ts</code> only. ESLint blocks the rest.</p>
+            </div>
+            <div class="card">
+              <h3>No styles in <code>app/</code></h3>
+              <p>The Unistyles Babel plugin only processes <code>src/</code>.</p>
+            </div>
+            <div class="card">
+              <h3>No raw animation numbers</h3>
+              <p>Use the motion tokens and presets. A raw duration ignores Reduce Motion.</p>
+            </div>
+            <div class="card">
+              <h3>Never set tab animation to "none"</h3>
+              <p>It remounts every tab on iOS (the blank-tabs bug).</p>
+            </div>
+            <div class="card">
+              <h3>Change motion tokens → rebuild sounds</h3>
+              <p>A test compares <code>sound-timings.json</code> with the tokens.</p>
+            </div>
+            <div class="card">
+              <h3>Don't edit applied migrations</h3>
+              <p>Change the schema and run <code>npm run db:generate</code> for a new one.</p>
+            </div>
+            <div class="card">
+              <h3>Don't persist the query cache</h3>
+              <p>SQLite already holds the data; two copies would disagree.</p>
+            </div>
+            <div class="card">
+              <h3>Merge on GitLab only</h3>
+              <p>GitHub is a mirror; merges there get overwritten.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- COMMANDS -->
+        <section id="commands">
+          <span class="eyebrow">11 · Commands</span>
+          <h2>The ones you'll actually type</h2>
+          <div class="cmds">
+            <div class="cmd">
+              <div>
+                <div class="what">Install</div>
+                <code>npm ci</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Start the dev server (then open from the dev client)</div>
+                <code>npm run start</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Build and run on Android locally</div>
+                <code>npm run android</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Everything CI checks: types, lint, format, tests</div>
+                <code>npm run verify</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Fix formatting</div>
+                <code>npm run format</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">New local migration after a schema change</div>
+                <code>npm run db:generate</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Add a dependency (picks the SDK-compatible version)</div>
+                <code>npx expo install &lt;package&gt;</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Fix version drift</div>
+                <code>npx expo install --fix</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">End-to-end tests</div>
+                <code>maestro test .maestro</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Cloud dev build for the phone</div>
+                <code>npx eas-cli@latest build --profile development --platform android</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Staging APK</div>
+                <code>npx eas-cli@latest build --profile preview --platform android</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+            <div class="cmd">
+              <div>
+                <div class="what">Rebuild sounds after changing motion tokens</div>
+                <code>python scripts/sounds/build-sounds.py</code>
+              </div>
+              <button class="copy" type="button">Copy</button>
+            </div>
+          </div>
+          <h3>How code reaches a phone</h3>
+          <ol class="steps">
+            <li>
+              <div class="step-body">
+                <b>Push to GitLab</b><span>The source of truth. GitHub only mirrors it.</span>
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>CI runs</b
+                ><span>typecheck, lint, format, tests, security scans, Expo health, bundle export.</span>
+              </div>
+            </li>
+            <li>
+              <div class="step-body"><b>Merge to main</b><span>Through a merge request.</span></div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Run the manual <code>eas-build</code> job</b
+                ><span>Copies the env values to EAS and builds the preview APK.</span>
+              </div>
+            </li>
+            <li>
+              <div class="step-body">
+                <b>Install the APK</b
+                ><span>No store release or over-the-air updates yet, so every fix needs a new build.</span>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <!-- WHERE -->
+        <section id="where">
+          <span class="eyebrow">12 · Where things are</span>
+          <h2>Quick map of the repo</h2>
+          <div class="where">
+            <div><span>Screens (routes)</span><code>app/</code></div>
+            <div><span>Boot order</span><code>app/_layout.tsx · src/core/bootstrap/</code></div>
+            <div><span>Sign-in hub</span><code>src/features/auth/data/SupabaseAuthRepository.ts</code></div>
+            <div><span>Auth state</span><code>src/features/auth/state/authStore.ts</code></div>
+            <div><span>Route guards</span><code>src/features/auth/domain/guards.ts</code></div>
+            <div><span>Navigation</span><code>src/shared/actions/</code></div>
+            <div><span>Profile (local-first)</span><code>src/features/profile/</code></div>
+            <div><span>Local DB, schema, migrations</span><code>src/core/db/</code></div>
+            <div>
+              <span>Server schema &amp; security</span><code>supabase/migrations/0001_profiles.sql</code>
+            </div>
+            <div><span>Wiring (DI)</span><code>src/core/di.ts</code></div>
+            <div><span>Env validation</span><code>src/core/config/env.ts</code></div>
+            <div><span>Theme tokens</span><code>src/theme/tokens/</code></div>
+            <div><span>Motion timings</span><code>src/theme/tokens/motion.ts</code></div>
+            <div><span>Reusable components</span><code>src/shared/ui/</code></div>
+            <div><span>Haptics &amp; sounds</span><code>src/shared/lib/</code></div>
+            <div><span>Lint architecture rules</span><code>eslint.config.js</code></div>
+            <div><span>Build config</span><code>app.config.ts · eas.json</code></div>
+            <div><span>CI</span><code>.gitlab-ci.yml · docs/CI.md</code></div>
+          </div>
+        </section>
+
+        <!-- GLOSSARY -->
+        <section id="glossary">
+          <span class="eyebrow">13 · Glossary</span>
+          <h2>Terms, and what they mean in this app</h2>
+          <label for="gloss-search" class="small muted">Filter terms</label>
+          <input
+            id="gloss-search"
+            class="search"
+            type="search"
+            placeholder="e.g. nonce, dirty, guard"
+            autocomplete="off"
+          />
+          <dl class="gloss" id="gloss"></dl>
+          <p class="empty" id="gloss-empty" hidden>No term matches that filter.</p>
+        </section>
+
+        <!-- UNKNOWNS -->
+        <section id="unknowns">
+          <span class="eyebrow">14 · Unknowns</span>
+          <h2>Things the code can't tell you</h2>
+          <p>Fill these in yourself; the repository has no record of them.</p>
+          <div class="grid-2">
+            <div class="card">
+              <h3>Supabase setup</h3>
+              <p>
+                Region, plan, and whether development, preview and production use separate projects. Whether
+                the SQL migration was applied to each.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Legal &amp; help site</h3>
+              <p>Where <code>EXPO_PUBLIC_LEGAL_BASE_URL</code> is hosted.</p>
+            </div>
+            <div class="card">
+              <h3>Store release</h3>
+              <p>No store listing, submit credentials or release process in the repo.</p>
+            </div>
+            <div class="card">
+              <h3>Loose ends</h3>
+              <p>
+                Why the two Reanimated feature flags in <code>package.json</code> are set, and whether the
+                three unused packages are still intended.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <footer>
+          Generated from the Streak repository on 26 Sep 2026 (main @ 20ff7cc). The full reference, with
+          evidence labels on every claim, is <code>docs/PROJECT_MEMORY.md</code>.
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      // Sign-in tabs
+      document.querySelectorAll('[data-tabs]').forEach((root) => {
+        const tabs = [...root.querySelectorAll('[role="tab"]')];
+        const select = (tab) => {
+          tabs.forEach((t) => {
+            const on = t === tab;
+            t.setAttribute('aria-selected', String(on));
+            t.tabIndex = on ? 0 : -1;
+            document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+          });
+        };
+        tabs.forEach((tab, i) => {
+          tab.addEventListener('click', () => select(tab));
+          tab.addEventListener('keydown', (e) => {
+            const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+            if (!d) return;
+            const next = tabs[(i + d + tabs.length) % tabs.length];
+            select(next);
+            next.focus();
+          });
+        });
+      });
+
+      // Copy buttons
+      document.querySelectorAll('.copy').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const code = btn.parentElement.querySelector('code');
+          const text = code.textContent;
+          const done = () => {
+            btn.textContent = 'Copied';
+            setTimeout(() => (btn.textContent = 'Copy'), 1400);
+          };
+          const select = () => {
+            const range = document.createRange();
+            range.selectNodeContents(code);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            btn.textContent = 'Selected';
+            setTimeout(() => (btn.textContent = 'Copy'), 1400);
+          };
+          try {
+            navigator.clipboard.writeText(text).then(done, select);
+          } catch {
+            select();
+          }
+        });
+      });
+
+      // Glossary
+      const TERMS = [
+        [
+          'Development build',
+          'Your own native app containing the native modules; replaces Expo Go.',
+          'Required, because audio and Google Sign-In are not in Expo Go.',
+        ],
+        [
+          'EAS',
+          "Expo's cloud build and environment service.",
+          'Profiles development, preview and production in eas.json; env values live there.',
+        ],
+        [
+          'CNG',
+          'Continuous Native Generation: ios/ and android/ are generated from config.',
+          'Never edit android/ by hand; change app.config.ts.',
+        ],
+        [
+          'Route group',
+          'A folder in parentheses that groups screens without changing the URL.',
+          '(auth) is onboarding and login; (app) is the signed-in app.',
+        ],
+        [
+          'Route guard',
+          'A condition that decides which screens are reachable.',
+          'Stack.Protected with canEnterApp / canEnterAuth; changing sign-in state moves you automatically.',
+        ],
+        [
+          'MVVM',
+          'Model, View, ViewModel: drawing, screen logic and data kept apart.',
+          '*Screen.tsx + use*ViewModel.ts + repositories, enforced by ESLint.',
+        ],
+        [
+          'Repository',
+          'An object that hides where data comes from.',
+          'AuthRepository and ProfileRepository; the real ones are built in core/di.ts.',
+        ],
+        [
+          'DAO',
+          'Data access object: the functions that run the queries.',
+          'appMetaDao, profileDao, guestDataDao; SQLite only.',
+        ],
+        [
+          'Composition root',
+          'The one place that wires real implementations together.',
+          'createRepositories() in core/di.ts; tests pass fakes instead.',
+        ],
+        [
+          'ORM',
+          'Typed code in place of raw SQL.',
+          'Drizzle. Its SQLite driver is synchronous, so queries run on the JS thread.',
+        ],
+        [
+          'Migration',
+          'A versioned change to the database structure.',
+          'Phone: generated by drizzle-kit, run at launch. Server: SQL run by hand in Supabase.',
+        ],
+        [
+          'Local-first',
+          'The device database is the truth; the network refreshes it.',
+          'Profiles show from SQLite first, then update from Supabase when online.',
+        ],
+        [
+          'Dirty flag',
+          'A marker that a row has changes not yet sent to the server.',
+          'profiles.dirty. Dirty rows win over the server copy.',
+        ],
+        [
+          'Soft delete',
+          'Marking a row deleted instead of removing it.',
+          'deleted_at; the guest profile is retired this way.',
+        ],
+        [
+          'RLS',
+          'Row Level Security: per-row access rules in Postgres.',
+          'Each person can read, create and update only their own profile row.',
+        ],
+        [
+          'Anon key',
+          "Supabase's public client key; safe in the app because RLS protects the data.",
+          'EXPO_PUBLIC_SUPABASE_ANON_KEY. The service_role key must never be in the app.',
+        ],
+        [
+          'Access & refresh token',
+          'Short-lived proof of identity, and the longer-lived token that renews it.',
+          'Handled by supabase-js; stored encrypted; refreshed only while the app is open.',
+        ],
+        [
+          'ID token',
+          'A signed identity token from Apple or Google.',
+          'Handed to Supabase with signInWithIdToken.',
+        ],
+        [
+          'Nonce',
+          'A one-time random value that ties a token to one request.',
+          'Apple gets its SHA-256, Supabase gets the raw value.',
+        ],
+        ['OTP', 'One-time password.', 'The 6-digit email code.'],
+        [
+          'Guest mode',
+          'Using the app without an account.',
+          'guest_id + guest_active in app_meta; data stays on the phone and moves to your account when you sign in.',
+        ],
+        [
+          'staleTime',
+          'How long cached data counts as fresh.',
+          '30 seconds by default; Apple availability never goes stale.',
+        ],
+        [
+          'Invalidate',
+          'Mark cached data stale so it refetches.',
+          'Sign-in invalidates the profile; sign-out clears the whole cache.',
+        ],
+        [
+          'Zustand persist',
+          'Saving a store to storage automatically.',
+          'Synchronous SQLite key/value store, so state is ready before the first frame.',
+        ],
+        [
+          'Design tokens',
+          'Named design values such as colours, spacing and timings.',
+          'src/theme/tokens, combined by buildTheme().',
+        ],
+        [
+          'Glass',
+          "The app's translucent look: glowing backdrop and see-through cards.",
+          "The default style. It's the app's own drawing, not Apple's API.",
+        ],
+        [
+          'Worklet',
+          'A function that runs on the UI thread.',
+          'Used for everything that moves every frame (pager, tab bar, theme veil).',
+        ],
+        [
+          'Shared value',
+          'State the UI thread can read without React re-rendering.',
+          'Pager progress, the liquid tab bar ends, the theme veil.',
+        ],
+        [
+          'Reduce Motion',
+          'Accessibility setting that minimises animation.',
+          'Follows the phone, or an in-app On/Off override in Appearance.',
+        ],
+        [
+          'Intensity level',
+          'How dark a heatmap day is.',
+          '0 check-ins → 0, 1 → 1, 2–3 → 2, 4–5 → 3, 6+ → 4.',
+        ],
+        [
+          'APP_VARIANT=local',
+          'An env flag at build time.',
+          'Builds "Streak Local" with its own app id, so it installs next to the EAS build.',
+        ],
+        [
+          'Maestro',
+          'A mobile end-to-end test runner using YAML.',
+          'Two flows in .maestro/: guest onboarding and email validation.',
+        ],
+      ];
+      const list = document.getElementById('gloss');
+      const empty = document.getElementById('gloss-empty');
+      const render = (q = '') => {
+        const needle = q.trim().toLowerCase();
+        const rows = TERMS.filter((t) => !needle || t.join(' ').toLowerCase().includes(needle));
+        list.innerHTML = '';
+        for (const [term, general, here] of rows) {
+          const div = document.createElement('div');
+          div.className = 'term';
+          const dt = document.createElement('dt');
+          dt.textContent = term;
+          const g = document.createElement('dd');
+          g.textContent = general;
+          const h = document.createElement('dd');
+          h.className = 'here';
+          h.textContent = here;
+          div.append(dt, g, h);
+          list.append(div);
+        }
+        empty.hidden = rows.length > 0;
+      };
+      render();
+      document.getElementById('gloss-search').addEventListener('input', (e) => render(e.target.value));
+    </script>
+  </body>
+</html>
