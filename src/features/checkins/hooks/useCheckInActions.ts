@@ -56,7 +56,7 @@ export interface CheckInActionDeps {
 
 const COPY = {
   saveFailed: "Couldn't save your check-in. It's still here, so try again.",
-  undoFailed: { title: "Couldn't undo", sub: 'The check-in is still saved. Try again from Day details.' },
+  undoFailed: { title: "Couldn't undo", sub: 'The check-in is still saved. You can delete it from its day.' },
   deleteConfirm: (count: number) =>
     `This removes ${checkInCount(count)} from this device. It can't be undone, so export a copy first.`,
   deleted: (count: number) => ({ title: 'Activity data deleted', sub: `${checkInCount(count)} removed.` }),

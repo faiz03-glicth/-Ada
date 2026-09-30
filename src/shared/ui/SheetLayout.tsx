@@ -23,7 +23,7 @@ export interface SheetLayoutProps {
 }
 
 /**
- * The inside of every bottom sheet (Check-in, Day details). The sheet itself is the platform's native
+ * The inside of every bottom sheet (New check-in, the Day sheet). The sheet itself is the platform's native
  * form sheet (the stack presents it), so dragging, settling and dismissing follow the finger natively;
  * this lays out its header (title, Close) and scrolls the content above the keyboard.
  */

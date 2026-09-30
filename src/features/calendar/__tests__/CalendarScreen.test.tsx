@@ -1,13 +1,15 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
-import { openDay, openDayPicker } from '@/shared/actions';
+import { indexCheckIns } from '@/features/checkins/domain/checkInIndex';
+import { openDay } from '@/shared/actions';
 import { monthLong } from '@/shared/lib/date/calendar';
 import { testUser } from '@test/fakes/fakeRepositories';
 import { checkInDaysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
 import { renderWithApp } from '@test/providers';
 import { SCHEMES } from '@test/render';
 
+import { openingDay } from '../domain/openingDay';
 import { CalendarScreen } from '../ui/CalendarScreen';
 
 jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
@@ -32,7 +34,9 @@ describe.each(SCHEMES)('Calendar in %s', (scheme) => {
     });
     // A month of the year opens its days on the wheel; months still to come don't answer.
     fireEvent.press(screen.getByRole('button', { name: /^January \d+, / }));
-    expect(openDayPicker).toHaveBeenCalledWith({ year, month: 1 });
+    expect(openDay).toHaveBeenCalledWith(
+      openingDay({ year, month: 0 }, today(), indexCheckIns([]), undefined),
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Previous year' }));
     expect(screen.getByTestId('calendar-title')).toHaveTextContent(String(year - 1));
     expect(screen.getByLabelText('Check-ins, 0')).toBeTruthy();

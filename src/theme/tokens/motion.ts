@@ -120,6 +120,11 @@ export const motion = {
   settle: { durationMs: DURATION.normal },
   /** fadeUp: something appearing in place (a banner, a status line) rises a little as it fades in. */
   fadeUp: { durationMs: DURATION.normal, distance: DISTANCE.medium },
+  /**
+   * dayChange: a chosen day's details refreshed in place (the Day sheet, under its date wheel). The new
+   * content is there at once and rises `distance` from `fromOpacity` to rest: felt, never a blank.
+   */
+  dayChange: { durationMs: DURATION.fast, distance: DISTANCE.small, fromOpacity: 0.6 },
   /** staggerIn: list rows rising into place one after another (the intensity levels). */
   staggerIn: { durationMs: DURATION.normal, distance: DISTANCE.small, gapMs: STAGGER.list },
   /**

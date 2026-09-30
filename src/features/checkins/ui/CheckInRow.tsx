@@ -13,7 +13,7 @@ export interface CheckInRowProps {
   /**
    * summary: Home's today list (time · note under the name);
    * history: History (note under the name, time on the right);
-   * timeline: Day details (time on the left, an options button on the right).
+   * timeline: the Day sheet (time on the left, an options button on the right).
    */
   layout: 'summary' | 'history' | 'timeline';
   onPress?: () => void;

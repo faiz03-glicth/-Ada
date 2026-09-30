@@ -1,8 +1,8 @@
-import { isActivityId } from '@/features/activities/domain/catalog';
+import { ACTIVITIES, isActivityId } from '@/features/activities/domain/catalog';
 import type { ISODate } from '@/shared/lib/date/isoDate';
 
 /**
- * The one check-in model every screen reads (Home, Day details, Calendar, History, Insights, Profile).
+ * The one check-in model every screen reads (Home, the Day sheet, Calendar, History, Insights, Profile).
  * `date` is a local calendar day and `minute` the local time of day, so a check-in always stays on the day
  * it was logged for.
  */
@@ -61,4 +61,20 @@ export const CHECK_IN_PROBLEM_COPY: Record<CheckInProblem, string> = {
 /** Minutes since local midnight for a Date. */
 export function minuteOfDay(date: Date): number {
   return date.getHours() * 60 + date.getMinutes();
+}
+
+/** Check-ins on another day are logged at midday: only the day matters (as in the prototype). */
+export const OTHER_DAY_MINUTE = 12 * 60;
+
+/** PURE: when a check-in without a picked time is logged: now for today, midday on any earlier day. */
+export function quickCheckInMinute(day: ISODate, today: ISODate, now: Date): number {
+  return day === today ? minuteOfDay(now) : OTHER_DAY_MINUTE;
+}
+
+/**
+ * PURE: the activity a new check-in starts on: the last one logged (what people repeat most), else the
+ * first one they chose to track, else the first activity.
+ */
+export function startingActivityId(latest: CheckIn | null, picks: readonly string[]): string {
+  return latest?.activityId ?? picks[0] ?? ACTIVITIES[0]?.id ?? 'workout';
 }

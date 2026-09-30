@@ -21,16 +21,11 @@ export interface HeatmapOptions {
   month?: number;
 }
 
-/** A month to choose a day in (the heatmap's month → the date wheel). */
-export interface DayPickerOptions {
-  year: number;
-  /** 1–12 */
-  month: number;
-}
-
 export interface CheckInOptions {
   /** Pre-select a day (create). */
   date?: ISODate;
+  /** Pre-select an activity (create). */
+  activityId?: string;
   /** Edit an existing check-in. */
   logId?: string;
 }

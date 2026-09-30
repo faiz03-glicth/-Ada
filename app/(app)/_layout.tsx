@@ -29,8 +29,7 @@ export default function AppLayout() {
       <Stack.Screen name="heatmap" />
       <Stack.Screen name="settings/[section]" />
       <Stack.Screen name="check-in" options={{ ...sheet, sheetAllowedDetents: [0.92] }} />
-      <Stack.Screen name="day/[date]" options={{ ...sheet, sheetAllowedDetents: [0.6, 0.95] }} />
-      <Stack.Screen name="day-picker" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
+      <Stack.Screen name="day/[date]" options={{ ...sheet, sheetAllowedDetents: [0.92] }} />
       <Stack.Screen name="activity-editor" options={{ ...sheet, sheetAllowedDetents: [0.92] }} />
       <Stack.Screen name="edit-field" options={{ ...sheet, sheetAllowedDetents: 'fitToContents' }} />
     </Stack>

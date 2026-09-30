@@ -18,9 +18,9 @@ import {
 
 import { useCheckInViewModel, type CheckInViewModel } from './useCheckInViewModel';
 
-/** The New check-in sheet (the + button, "Add check-in to this day", Home's empty state). */
-export function CheckInSheet({ date }: { date: ISODate | null }) {
-  const vm = useCheckInViewModel(date);
+/** The New check-in sheet (the + button, the Day sheet's "Add a note", Home's empty state). */
+export function CheckInSheet({ date, activityId }: { date: ISODate | null; activityId?: string }) {
+  const vm = useCheckInViewModel(date, activityId);
   const { theme } = useUnistyles();
 
   return (

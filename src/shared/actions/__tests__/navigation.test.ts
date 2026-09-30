@@ -54,6 +54,7 @@ describe('navigation actions', () => {
   it('create and edit share one sheet each, and omit unset params', () => {
     openCheckIn();
     openCheckIn({ date: day });
+    openCheckIn({ date: day, activityId: 'reading' });
     openCheckIn({ logId: 'log-1' });
     openActivityEditor();
     openActivityEditor('act-1');
@@ -61,6 +62,7 @@ describe('navigation actions', () => {
     expect(mockedRouter.push.mock.calls).toEqual([
       [{ pathname: '/check-in', params: {} }],
       [{ pathname: '/check-in', params: { date: day } }],
+      [{ pathname: '/check-in', params: { date: day, activityId: 'reading' } }],
       [{ pathname: '/check-in', params: { logId: 'log-1' } }],
       [{ pathname: '/activity-editor', params: {} }],
       [{ pathname: '/activity-editor', params: { id: 'act-1' } }],

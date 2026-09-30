@@ -69,4 +69,24 @@ describe.each(SCHEMES)('Check-in sheet in %s', (scheme) => {
     expect(screen.queryByText('When')).toBeNull();
     expect(screen.getByText('This day goes to 1 check-in · Light')).toBeTruthy();
   });
+
+  it('starts on the activity it was opened with, and ignores one it does not know', async () => {
+    const { unmount } = renderWithApp(<CheckInSheet date={daysAgo(2)} activityId="walk" />, {
+      scheme,
+      repositories: repositoriesWith([]),
+    });
+    expect((await screen.findByRole('radio', { name: 'Walk' })).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    unmount();
+
+    renderWithApp(<CheckInSheet date={daysAgo(2)} activityId="not-an-activity" />, {
+      scheme,
+      repositories: repositoriesWith([]),
+    });
+    // Nothing logged yet: the first activity picked in setup.
+    expect((await screen.findByRole('radio', { name: 'Workout' })).props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+  });
 });

@@ -8,7 +8,7 @@ import {
   buildMonthGrid,
   monthAccessibilityLabel,
 } from '@/features/heatmap/domain/calendarGrid';
-import { goBack, openDay, openDayPicker, type HeatmapOptions, type HeatmapView } from '@/shared/actions';
+import { goBack, openDay, type HeatmapOptions, type HeatmapView } from '@/shared/actions';
 import {
   addMonths,
   eachDay,
@@ -26,6 +26,8 @@ import { haptics } from '@/shared/lib/haptics';
 import { useCalendarPreferencesStore } from '@/shared/state/calendarPreferencesStore';
 import type { HeatmapMonth } from '@/shared/ui';
 
+import { useOpenMonth } from '../hooks/useOpenMonth';
+
 export const VIEW_OPTIONS = [
   { value: 'year', label: 'Year' },
   { value: 'month', label: 'Month' },
@@ -42,6 +44,7 @@ export function useCalendarViewModel(options: HeatmapOptions) {
   const today = useToday();
   const current = monthOf(today);
   const { index } = useCheckIns();
+  const openMonth = useOpenMonth();
   const weekStart = useCalendarPreferencesStore((s) => s.weekStart);
   const outlineToday = useCalendarPreferencesStore((s) => s.outlineToday);
 
@@ -143,7 +146,7 @@ export function useCalendarViewModel(options: HeatmapOptions) {
     onPrevious: () => step(-1),
     onNext: () => step(1),
     onDayPress,
-    onMonthPress: ({ value }: HeatmapMonth) => openDayPicker({ year: value.year, month: value.month + 1 }),
+    onMonthPress: ({ value }: HeatmapMonth) => openMonth(value),
     onBack: () => goBack(),
   };
 }

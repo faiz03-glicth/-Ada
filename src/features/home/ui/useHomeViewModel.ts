@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
+import { useOpenMonth } from '@/features/calendar/hooks/useOpenMonth';
 import { checkInsOn, countOn } from '@/features/checkins/domain/checkInIndex';
 import { currentStreak, summarize, trend, type TrendRange } from '@/features/checkins/domain/stats';
 import { useCheckIns } from '@/features/checkins/hooks/useCheckIns';
@@ -8,7 +9,7 @@ import { useCheckInFeedbackStore } from '@/features/checkins/state/checkInFeedba
 import { buildMonthGrid, monthAccessibilityLabel } from '@/features/heatmap/domain/calendarGrid';
 import { profileTitle } from '@/features/profile/domain/Profile';
 import { useProfile } from '@/features/profile/hooks/useProfile';
-import { goTab, openCheckIn, openDay, openDayPicker, openHeatmap } from '@/shared/actions';
+import { goTab, openCheckIn, openDay, openHeatmap } from '@/shared/actions';
 import {
   addDays,
   addMonths,
@@ -93,10 +94,8 @@ export function useHomeViewModel() {
   const trendReady = firstDay !== undefined && firstDay <= addDays(today, -7);
 
   const name = profile ?? user;
-  const onMonthPress = useCallback(
-    ({ value }: HeatmapMonth) => openDayPicker({ year: value.year, month: value.month + 1 }),
-    [],
-  );
+  const openMonth = useOpenMonth();
+  const onMonthPress = useCallback(({ value }: HeatmapMonth) => openMonth(value), [openMonth]);
 
   return {
     loading,

@@ -40,6 +40,7 @@ export { useMotion } from './motion/useMotion';
 export { useNavigationMotion, type NavigationMotion } from './motion/useNavigationMotion';
 export { usePressMotion, type PressFeedback } from './motion/usePressMotion';
 export { useSelectionMotion } from './motion/useSelectionMotion';
+export { useDayChangeMotion } from './motion/useDayChangeMotion';
 export { useStateTransition } from './motion/useStateTransition';
 export { centredSlot, slotDistance, useWheelFocus, wheelFocus } from './motion/useWheelFocus';
 export { MotionRuntimeBridge } from './sync/MotionRuntimeBridge';

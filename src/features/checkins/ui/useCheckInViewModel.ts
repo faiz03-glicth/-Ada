@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 
-import { ACTIVITIES } from '@/features/activities/domain/catalog';
+import { ACTIVITIES, isActivityId } from '@/features/activities/domain/catalog';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { INTENSITY_LEVELS, intensityLevel } from '@/features/heatmap/domain/intensity';
 import { goBack } from '@/shared/actions';
@@ -10,7 +10,7 @@ import { checkInCount, formatTime, longDate } from '@/shared/lib/format/dates';
 import { haptics } from '@/shared/lib/haptics';
 import { showInfo } from '@/shared/ui/toast';
 
-import { MAX_NOTE_LENGTH, minuteOfDay } from '../domain/CheckIn';
+import { MAX_NOTE_LENGTH, minuteOfDay, OTHER_DAY_MINUTE, startingActivityId } from '../domain/CheckIn';
 import { countOn } from '../domain/checkInIndex';
 import { useCheckInActions } from '../hooks/useCheckInActions';
 import { useCheckIns } from '../hooks/useCheckIns';
@@ -26,8 +26,6 @@ export const WHEN_OPTIONS = [
 /** "30 min ago", and how far the picked time moves per step. */
 export const EARLIER_MINUTES = 30;
 export const PICK_STEP_MINUTES = 15;
-/** Check-ins on another day are logged at midday, as in the prototype (only the day matters). */
-export const OTHER_DAY_MINUTE = 12 * 60;
 
 /**
  * The check-in sheet: pick an activity, optionally when and a note, and check in. Two taps is enough
@@ -35,7 +33,7 @@ export const OTHER_DAY_MINUTE = 12 * 60;
  * then the toast (with Undo) and the success haptic follow. If it fails, the sheet stays open with
  * everything as entered and says what to do.
  */
-export function useCheckInViewModel(date: ISODate | null) {
+export function useCheckInViewModel(date: ISODate | null, initialActivityId?: string) {
   const today = useToday();
   const day = date && date <= today ? date : today;
   const isToday = day === today;
@@ -43,9 +41,11 @@ export function useCheckInViewModel(date: ISODate | null) {
   const actions = useCheckInActions();
   const onboardingPicks = useAuthStore((s) => s.onboardingDraft.selectedActivityIds);
 
-  // Starts on the last activity logged (what people repeat most), else the first one they chose to track.
-  const [activityId, setActivityId] = useState(
-    () => index.latest?.activityId ?? onboardingPicks[0] ?? ACTIVITIES[0]?.id ?? 'workout',
+  // Starts on the activity it was opened with (the Day sheet's pick), else the usual starting activity.
+  const [activityId, setActivityId] = useState(() =>
+    initialActivityId && isActivityId(initialActivityId)
+      ? initialActivityId
+      : startingActivityId(index.latest, onboardingPicks),
   );
   const [when, setWhen] = useState<WhenChoice>('now');
   const nowMinute = minuteOfDay(new Date());

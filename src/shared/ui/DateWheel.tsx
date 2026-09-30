@@ -36,8 +36,8 @@ export interface DateWheelProps {
   focusedIndex: number;
   /** A different day reached the centre (drag, fling, tap, screen reader): once per change. */
   onFocusChange: (index: number) => void;
-  /** The chosen day was tapped (or activated): continue with it. */
-  onConfirm: (index: number) => void;
+  /** The chosen day was tapped (or activated): continue with it. Without it, tapping the centred day does nothing. */
+  onConfirm?: (index: number) => void;
   /** Names the wheel for screen readers ("Days in September"). */
   accessibilityLabel: string;
   testID?: string;
@@ -45,11 +45,8 @@ export interface DateWheelProps {
 
 const { slotWidth: SLOT, tickGapMs } = motion.datePicker;
 const BLOCK = 40;
-const ACTIONS = [
-  { name: 'increment' as const },
-  { name: 'decrement' as const },
-  { name: 'activate' as const },
-];
+const MOVE_ACTIONS = [{ name: 'increment' as const }, { name: 'decrement' as const }];
+const CONFIRM_ACTIONS = [...MOVE_ACTIONS, { name: 'activate' as const }];
 
 /**
  * A horizontal wheel of days: drag it, and the day under the centre pointer is the chosen one. Nothing
@@ -62,9 +59,10 @@ const ACTIONS = [
  * - While the dates move, nothing re-renders: each date's swell and fade follow the scroll position on the
  *   UI thread (the motion system's dateFocus). A change of day re-renders only the two dates whose ring
  *   moves.
- * - Screen readers get one adjustable control: swipe up/down to change the day, double-tap to continue.
+ * - Screen readers get one adjustable control: swipe up/down to change the day (and, when `onConfirm` is
+ *   given, double-tap to continue).
  */
-export function DateWheel({
+export const DateWheel = memo(function DateWheel({
   days,
   focusedIndex,
   onFocusChange,
@@ -162,7 +160,7 @@ export function DateWheel({
   });
   const press = useCallback((index: number) => {
     const { focusedIndex: focused } = latest.current;
-    if (index === focused) latest.current.onConfirm(index);
+    if (index === focused) latest.current.onConfirm?.(index);
     else latest.current.glideTo(index);
   }, []);
 
@@ -170,7 +168,7 @@ export function DateWheel({
     const action = event.nativeEvent.actionName;
     if (action === 'increment') glideTo(focusedIndex + 1);
     else if (action === 'decrement') glideTo(focusedIndex - 1);
-    else onConfirm(focusedIndex);
+    else if (action === 'activate') onConfirm?.(focusedIndex);
   };
 
   return (
@@ -181,8 +179,12 @@ export function DateWheel({
       accessibilityRole="adjustable"
       accessibilityLabel={accessibilityLabel}
       accessibilityValue={{ text: days[focusedIndex]?.label ?? '' }}
-      accessibilityHint="Swipe up or down to change the day, double-tap to open it"
-      accessibilityActions={ACTIONS}
+      accessibilityHint={
+        onConfirm
+          ? 'Swipe up or down to change the day, double-tap to open it'
+          : 'Swipe up or down to change the day'
+      }
+      accessibilityActions={onConfirm ? CONFIRM_ACTIONS : MOVE_ACTIONS}
       onAccessibilityAction={onAccessibilityAction}
     >
       <Pointer />
@@ -212,7 +214,7 @@ export function DateWheel({
       </Animated.ScrollView>
     </View>
   );
-}
+});
 
 /** The centre pointer: a short accent line above the chosen date. */
 function Pointer() {

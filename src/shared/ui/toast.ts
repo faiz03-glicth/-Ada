@@ -1,3 +1,4 @@
+import { useEffect, useSyncExternalStore } from 'react';
 import { toast } from 'sonner-native';
 
 export interface ToastMessage {
@@ -5,6 +6,38 @@ export interface ToastMessage {
   sub?: string;
   /** Adds an "Undo" action and keeps the toast up a little longer. */
   undo?: () => void;
+}
+
+// How many open surfaces want toasts at the top (see useToastsAtTop), and who to tell when that changes.
+let atTop = 0;
+const listeners = new Set<() => void>();
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+const isAtTop = () => atTop > 0;
+const change = (by: number) => {
+  atTop += by;
+  listeners.forEach((listener) => listener());
+};
+
+/**
+ * While the caller is mounted, toasts appear at the top of the screen instead of above the tab bar. For a
+ * surface whose own main action sits where the toast would land (the Day sheet's Check in), so the toast
+ * never covers it.
+ */
+export function useToastsAtTop(): void {
+  useEffect(() => {
+    change(1);
+    return () => change(-1);
+  }, []);
+}
+
+/** For the toast host (AppToaster): whether toasts belong at the top right now. */
+export function useToastsAreAtTop(): boolean {
+  return useSyncExternalStore(subscribe, isAtTop);
 }
 
 /**
