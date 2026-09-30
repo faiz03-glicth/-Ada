@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { AppError } from '@/core/errors/AppError';
 
+import { cleanDisplayName } from '../../domain/Profile';
+
 /** Server rows are external data: validated, never cast. */
 const remoteProfileSchema = z.object({
   id: z.string(),
@@ -47,7 +49,10 @@ export function createProfileApi(supabase: SupabaseClient): ProfileApi {
       return parsed.data;
     },
     async updateDisplayName(id, displayName) {
-      const { error } = await supabase.from('profiles').update({ display_name: displayName }).eq('id', id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_name: cleanDisplayName(displayName) })
+        .eq('id', id);
       if (error) throw toAppError(error);
     },
   };

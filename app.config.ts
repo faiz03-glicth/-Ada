@@ -45,6 +45,37 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: APP_ID,
     supportsTablet: true,
     usesAppleSignIn: true,
+    // App Transport Security is left to Expo's template, which already refuses arbitrary loads
+    // (NSAllowsArbitraryLoads: false) while allowing the local network the dev client needs.
+    /**
+     * "Required reason" APIs used by the app's native libraries. Apple doesn't reliably read the privacy
+     * manifests inside static CocoaPods, so the app declares them itself (docs.expo.dev/guides/apple-privacy).
+     * Collected from every PrivacyInfo.xcprivacy in node_modules; re-check when adding a native library.
+     */
+    privacyManifests: {
+      NSPrivacyAccessedAPITypes: [
+        {
+          // react-native, @react-native-async-storage/async-storage, expo-file-system
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp',
+          NSPrivacyAccessedAPITypeReasons: ['C617.1', '0A2A.1', '3B52.1'],
+        },
+        {
+          // react-native, expo-constants, expo-system-ui
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults',
+          NSPrivacyAccessedAPITypeReasons: ['CA92.1'],
+        },
+        {
+          // react-native
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime',
+          NSPrivacyAccessedAPITypeReasons: ['35F9.1'],
+        },
+        {
+          // expo-file-system
+          NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace',
+          NSPrivacyAccessedAPITypeReasons: ['E174.1', '85F4.1'],
+        },
+      ],
+    },
   },
   android: {
     package: APP_ID,
@@ -55,6 +86,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    /**
+     * Permissions Streak never uses, removed from release builds. They come from Expo's default template
+     * (storage, drawing over other apps) and expo-secure-store's optional biometric lock (Streak keeps its
+     * session without one). `permissions` can't do this: it only adds; libraries' own entries still merge.
+     * Debug builds keep SYSTEM_ALERT_WINDOW from their own manifest, for the dev menu.
+     */
+    blockedPermissions: [
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
+      'android.permission.USE_BIOMETRIC',
+      'android.permission.USE_FINGERPRINT',
+    ],
   },
   web: {
     favicon: './assets/favicon.png',
