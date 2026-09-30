@@ -55,3 +55,7 @@ gl-code-quality-report.json
 
 # Supabase migrations stay on this computer only (not in the public repos)
 supabase/migrations/
+
+# Kept on this computer only (not in the repos)
+.maestro/
+docs/
