@@ -6,9 +6,13 @@ import { fromServerTime } from '@/shared/lib/date/serverTime';
 
 import type { PulledCheckIn } from '../local/checkInDao';
 
-/** A check-in as it's sent: the row's own values, never its owner (the server takes that from the session). */
+/**
+ * A check-in as it's sent. `user_id` names the account the phone means it for; the server stores the
+ * session's account and refuses the whole batch if the two differ (the session changed mid-upload).
+ */
 export interface PushedCheckIn {
   id: string;
+  user_id: string;
   date: string;
   minute: number;
   activity_id: string;
@@ -26,6 +30,8 @@ export interface PullCursor {
 
 export interface PulledPage {
   rows: PulledCheckIn[];
+  /** Rows this app can't read (written by something other than Streak): left out, and passed over. */
+  skipped: number;
   /** The cursor after this page; null when the page was empty. */
   next: PullCursor | null;
 }
@@ -65,12 +71,15 @@ function toAppError(error: { message: string; code?: string }): AppError<CheckIn
   if (/network request failed|failed to fetch|network error/i.test(error.message)) {
     return new AppError('Network', 'Network request failed');
   }
-  // 22xxx bad data, 23xxx constraint, 42501 row-level security: the same rows would fail again.
+  // 22xxx bad data, 23xxx constraint, and a row-level security refusal: the same rows would fail again.
+  // Any other 42501 (no permission at all: the session is gone or belongs to another account) is no fault
+  // of the rows, so the run stops instead of setting them aside one by one.
   const code = error.code ?? '';
-  if (/^2[23]/.test(code) || code === '42501') {
+  const rowLevel = code === '42501' && /row-level security/i.test(error.message);
+  if (/^2[23]/.test(code) || rowLevel) {
     return new AppError('Rejected', `Check-ins refused by the server (${code})`);
   }
-  return new AppError('Unknown', 'Check-in sync request failed');
+  return new AppError('Unknown', `Check-in sync request failed (${code || 'no code'})`);
 }
 
 const COLUMNS = 'id,date,minute,activity_id,note,created_at,updated_at,deleted_at,synced_at';
@@ -82,6 +91,45 @@ export function afterCursorFilter(after: PullCursor): string {
   }
   const at = `"${after.at}"`;
   return `synced_at.gt.${at},and(synced_at.eq.${at},id.gt.${after.key})`;
+}
+
+/** The fields a bookmark is made of, checked on their own: a row the app can't read still moves it on. */
+const cursorSchema = z.object({
+  synced_at: z.string().regex(CURSOR_AT),
+  id: z.string().regex(CURSOR_KEY),
+});
+
+/** A server row as a check-in for this phone, or null when it can't be read (it's then left out). */
+function toPulled(item: unknown): PulledCheckIn | null {
+  const parsed = pulledSchema.safeParse(item);
+  if (!parsed.success) return null;
+  const row = parsed.data;
+  const createdAt = fromServerTime(row.created_at);
+  const updatedAt = fromServerTime(row.updated_at);
+  const deletedAt = row.deleted_at === null ? null : fromServerTime(row.deleted_at);
+  if (!createdAt || !updatedAt || (row.deleted_at !== null && !deletedAt)) return null;
+  return {
+    id: row.id,
+    date: row.date,
+    minute: row.minute,
+    activityId: row.activity_id,
+    note: row.note,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  };
+}
+
+/**
+ * The bookmark after a page: the last row that carries a usable one, readable or not, so a row the app
+ * can't read never stops the pull for good. Null when no row has one.
+ */
+function cursorAfter(items: readonly unknown[]): PullCursor | null {
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const cursor = cursorSchema.safeParse(items[i]);
+    if (cursor.success) return { at: cursor.data.synced_at, key: cursor.data.id };
+  }
+  return null;
 }
 
 export function createCheckInApi(supabase: SupabaseClient): CheckInApi {
@@ -103,30 +151,10 @@ export function createCheckInApi(supabase: SupabaseClient): CheckInApi {
       if (after) query = query.or(afterCursorFilter(after));
       const { data, error } = await query;
       if (error) throw toAppError(error);
-      const parsed = z.array(pulledSchema).safeParse(data ?? []);
-      if (!parsed.success) throw new AppError('Unknown', 'Check-in response had an unexpected shape');
-
-      const rows: PulledCheckIn[] = [];
-      for (const row of parsed.data) {
-        const createdAt = fromServerTime(row.created_at);
-        const updatedAt = fromServerTime(row.updated_at);
-        const deletedAt = row.deleted_at === null ? null : fromServerTime(row.deleted_at);
-        if (!createdAt || !updatedAt || (row.deleted_at !== null && !deletedAt)) {
-          throw new AppError('Unknown', 'Check-in response had an unexpected time');
-        }
-        rows.push({
-          id: row.id,
-          date: row.date,
-          minute: row.minute,
-          activityId: row.activity_id,
-          note: row.note,
-          createdAt,
-          updatedAt,
-          deletedAt,
-        });
-      }
-      const last = parsed.data.at(-1);
-      return { rows, next: last ? { at: last.synced_at, key: last.id } : null };
+      const items: unknown = data ?? [];
+      if (!Array.isArray(items)) throw new AppError('Unknown', 'Check-in response had an unexpected shape');
+      const rows = items.map(toPulled).filter((row): row is PulledCheckIn => row !== null);
+      return { rows, skipped: items.length - rows.length, next: cursorAfter(items) };
     },
   };
 }

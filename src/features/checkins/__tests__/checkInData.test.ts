@@ -70,4 +70,18 @@ describe('check-ins on the device (real SQLite, real migrations)', () => {
     expect(await repository.list(null)).toEqual([]);
     expect(await repository.list('user-9')).toHaveLength(1);
   });
+
+  it('never hands over a check-in the guest deleted: it stays behind, deleted', async () => {
+    const { db, repository } = await setup();
+    await repository.add(null, input);
+    const deleted = await repository.add(null, { ...input, note: 'Deleted' });
+    await repository.remove(deleted.id);
+
+    await createGuestDataDao(db).reassignGuestData('guest-1', 'user-9', '2026-09-24T13:00:00.000Z');
+
+    const dao = createCheckInDao(db);
+    expect(await repository.list('user-9')).toHaveLength(1);
+    expect(await dao.countDirty('user-9', [])).toBe(1);
+    expect(await dao.getById(deleted.id)).toMatchObject({ userId: null, note: 'Deleted' });
+  });
 });

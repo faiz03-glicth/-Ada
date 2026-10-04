@@ -19,8 +19,9 @@ interface ServerRow extends PushedCheckIn {
 }
 
 /**
- * A stand-in for Supabase with the same rules as 0003_check_ins.sql: the caller owns what it pushes, the
- * newest edit wins (an older or equal one is ignored), and every accepted write gets a later synced_at.
+ * A stand-in for Supabase with the same rules as 0003_check_ins.sql: the caller owns what it pushes (a
+ * batch naming another account is refused whole), the newest edit wins (an older or equal one is
+ * ignored), a deleted check-in keeps no note, and every accepted write gets a later synced_at.
  */
 function createFakeServer() {
   const rows = new Map<string, ServerRow>();
@@ -28,21 +29,32 @@ function createFakeServer() {
   const stamp = () => new Date(Date.UTC(2026, 9, 4, 10, 0, 0) + (clock += 1) * 1000).toISOString();
   const state = {
     offline: false,
+    // Whose session the server sees.
+    session: USER,
     refuse: (_row: PushedCheckIn) => false,
     beforePush: async () => undefined as void,
     pushes: [] as number[],
+    // Every row the server accepted, as it was sent.
+    sent: [] as PushedCheckIn[],
+    // Rows this phone can't read: left out of a pull and counted, as checkInApi does.
+    unreadable: new Set<string>(),
   };
 
   const api: CheckInApi = {
     async push(batch) {
       await state.beforePush();
       if (state.offline) throw new AppError('Network', 'Network request failed');
+      if (batch.some((row) => row.user_id !== state.session)) {
+        throw new AppError('Unknown', 'Check-in sync request failed (42501)');
+      }
       if (batch.some((row) => state.refuse(row))) throw new AppError('Rejected', 'refused (23514)');
       state.pushes.push(batch.length);
+      state.sent.push(...batch);
       for (const row of batch) {
         const stored = rows.get(row.id);
         if (stored && row.updated_at <= stored.updated_at) continue;
-        rows.set(row.id, { ...row, user_id: USER, synced_at: stamp() });
+        const note = row.deleted_at === null ? row.note : '';
+        rows.set(row.id, { ...row, note, user_id: state.session, synced_at: stamp() });
       }
     },
     async pull(userId, after, limit): Promise<PulledPage> {
@@ -55,8 +67,9 @@ function createFakeServer() {
         .sort((a, b) => a.synced_at.localeCompare(b.synced_at) || a.id.localeCompare(b.id))
         .slice(0, limit);
       const last = page.at(-1);
+      const readable = page.filter((row) => !state.unreadable.has(row.id));
       return {
-        rows: page.map((row) => ({
+        rows: readable.map((row) => ({
           id: row.id,
           date: row.date,
           minute: row.minute,
@@ -66,6 +79,7 @@ function createFakeServer() {
           updatedAt: row.updated_at,
           deletedAt: row.deleted_at,
         })),
+        skipped: page.length - readable.length,
         next: last ? { at: last.synced_at, key: last.id } : null,
       };
     },
@@ -107,7 +121,8 @@ function createFakeTeras() {
   const rows = new Map<string, TerasRow>();
   let clock = 0;
   const stamp = () => new Date(Date.UTC(2026, 9, 4, 12, 0, 0) + (clock += 1) * 1000).toISOString();
-  const state = { offline: false, failure: null as Error | null, pulls: 0 };
+  // `unreadable`: days this phone can't read, left out of a pull and counted, as workoutDayApi does.
+  const state = { offline: false, failure: null as Error | null, pulls: 0, unreadable: new Set<string>() };
 
   const api: WorkoutDayApi = {
     async pull(userId, after, limit) {
@@ -123,8 +138,10 @@ function createFakeTeras() {
         .sort((a, b) => a.updated_at.localeCompare(b.updated_at) || a.date.localeCompare(b.date))
         .slice(0, limit);
       const last = page.at(-1);
+      const readable = page.filter((row) => !state.unreadable.has(row.date));
       return {
-        days: page.map((row) => ({ date: row.date, workedOut: row.sets > 0 })),
+        days: readable.map((row) => ({ date: row.date, workedOut: row.sets > 0 })),
+        skipped: page.length - readable.length,
         next: last ? { at: last.updated_at, key: last.date } : null,
       };
     },
@@ -265,6 +282,37 @@ describe('CloudSync: push', () => {
     await sync.run(USER);
     expect(server.rows.size).toBe(PUSH_BATCH + 1);
   });
+
+  it("stops, with everything still waiting, when the server's session is another account's", async () => {
+    const { sync, add, server, dao } = await setup();
+    await add(USER);
+    server.state.session = 'user-2';
+
+    await expect(sync.run(USER)).rejects.toMatchObject({ code: 'Unknown' });
+    expect(server.rows.size).toBe(0);
+    expect(await dao.countDirty(USER, [])).toBe(1);
+
+    // Not set aside as refused: the next run with the right session sends it.
+    server.state.session = USER;
+    await sync.run(USER);
+    expect(server.rows.size).toBe(1);
+  });
+
+  it("never sends a deleted check-in's note, and Undo here still brings the note back", async () => {
+    const { sync, add, server, repository } = await setup();
+    const checkIn = await add(USER, 'Leg day');
+    await sync.run(USER);
+    await repository.remove(checkIn.id);
+
+    await sync.run(USER);
+
+    expect(server.state.sent.at(-1)).toMatchObject({ id: checkIn.id, note: '' });
+    expect(server.rows.get(checkIn.id)).toMatchObject({ note: '', deleted_at: expect.any(String) });
+    // This phone kept the note through the sync, so Undo restores it everywhere.
+    expect(await repository.restore(checkIn.id)).toMatchObject({ note: 'Leg day' });
+    await sync.run(USER);
+    expect(server.rows.get(checkIn.id)).toMatchObject({ note: 'Leg day', deleted_at: null });
+  });
 });
 
 describe('CloudSync: pull', () => {
@@ -334,6 +382,37 @@ describe('CloudSync: pull', () => {
     await sync.run(USER);
     expect((await repository.list(null)).map((c) => c.note)).toEqual(['guest']);
   });
+
+  it('keeps no note for a check-in another phone deleted', async () => {
+    const { sync, server, add, dao } = await setup();
+    const checkIn = await add(USER, 'Run');
+    await sync.run(USER);
+    // What the server holds once another phone deletes it: the deletion, without the note.
+    server.fromOtherPhone(checkIn.id, '2099-01-01T00:00:00.000Z', { deleted_at: '2099-01-01T00:00:00.000Z' });
+
+    await sync.run(USER);
+
+    expect(await dao.getById(checkIn.id)).toMatchObject({ note: '', deletedAt: '2099-01-01T00:00:00.000Z' });
+  });
+
+  it("reads on past check-ins it can't read, and says only how many", async () => {
+    const { sync, server, repository } = await setup();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    for (let i = 0; i < PULL_PAGE + 20; i += 1) {
+      server.fromOtherPhone(
+        `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        '2026-10-02T08:00:00.000Z',
+      );
+    }
+    server.state.unreadable.add('00000000-0000-4000-8000-000000000003');
+
+    await sync.run(USER);
+
+    // The first page was full although a row was left out, so the pull went on to the next one.
+    expect(await repository.list(USER)).toHaveLength(PULL_PAGE + 19);
+    expect(error).toHaveBeenCalledWith("[sync] Check-ins this phone can't read were left out (1)");
+    error.mockRestore();
+  });
 });
 
 describe('CloudSync: workout days from Teras', () => {
@@ -388,6 +467,18 @@ describe('CloudSync: workout days from Teras', () => {
 
     await sync.run(USER);
     expect(await workoutDays.list(USER)).toHaveLength(PULL_PAGE + 1);
+  });
+
+  it("reads on past days it can't read, and says only how many", async () => {
+    const { sync, teras, workoutDays } = await setup();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    for (let i = 0; i < PULL_PAGE + 5; i += 1) teras.save(dateAt(i), 3);
+    teras.state.unreadable.add(dateAt(0));
+
+    expect((await sync.run(USER)).workoutDaysChanged).toBe(PULL_PAGE + 4);
+    expect(await workoutDays.list(USER)).toHaveLength(PULL_PAGE + 4);
+    expect(error).toHaveBeenCalledWith("[sync] Workout days this phone can't read were left out (1)");
+    error.mockRestore();
   });
 
   it("carries on with check-ins when Teras's table isn't there, and stops asking until the app restarts", async () => {

@@ -157,12 +157,15 @@ export function createCheckInDao(db: AppDatabase): CheckInDao {
           if (local.userId !== userId) continue;
           // An unsent change here wins unless the pulled one is newer (then this phone's edit lost).
           if (local.dirty && local.updatedAt >= row.updatedAt) continue;
-          if (!local.dirty && sameContent(local, row)) continue;
+          // A deletion arrives without its note (the server keeps none). The phone that deleted the
+          // check-in keeps the note for Undo; any other phone drops it along with the check-in.
+          const note = row.deletedAt !== null && local.deletedAt !== null ? local.note : row.note;
+          if (!local.dirty && sameContent(local, { ...row, note })) continue;
           tx.update(checkIns)
             .set({
               minute: row.minute,
               activityId: row.activityId,
-              note: row.note,
+              note,
               updatedAt: row.updatedAt,
               deletedAt: row.deletedAt,
               dirty: false,

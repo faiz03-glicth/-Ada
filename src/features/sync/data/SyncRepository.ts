@@ -79,13 +79,16 @@ const workoutDaysFailure = (error: unknown) =>
     ? error.message
     : `Workout days pull failed (${error instanceof Error ? error.name : 'unknown'})`;
 
-const toPushed = (row: CheckInRow): PushedCheckIn => ({
+const toPushed = (row: CheckInRow, userId: string): PushedCheckIn => ({
   id: row.id,
+  // The account this run is for: the server refuses the batch if the session is another account's.
+  user_id: userId,
   date: row.date,
   minute: row.minute,
   activity_id: row.activityId,
-  // Notes saved before notes were cleaned on save: cleaned now, so the server always accepts them.
-  note: cleanNote(row.note),
+  // A deleted check-in goes without its note (this phone keeps it for Undo). Notes saved before notes were
+  // cleaned on save are cleaned now, so the server always accepts them.
+  note: row.deletedAt === null ? cleanNote(row.note) : '',
   created_at: row.createdAt,
   updated_at: row.updatedAt,
   deleted_at: row.deletedAt,
@@ -130,7 +133,7 @@ export class CloudSync implements SyncRepository {
     for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
       const rows = await checkIns.listDirty(userId, PUSH_BATCH, [...this.refused]);
       if (!rows.length) break;
-      const accepted = await this.send(rows);
+      const accepted = await this.send(userId, rows);
       await checkIns.markClean(accepted.map(({ id, updatedAt }) => ({ id, updatedAt })));
       sent += accepted.length;
       onProgress?.({ step: 'backingUp', done: Math.min(sent, total), total });
@@ -142,9 +145,9 @@ export class CloudSync implements SyncRepository {
   }
 
   /** Sends rows; when the server refuses a batch, halves it until each refused row is alone and set aside. */
-  private async send(rows: readonly CheckInRow[]): Promise<CheckInRow[]> {
+  private async send(userId: string, rows: readonly CheckInRow[]): Promise<CheckInRow[]> {
     try {
-      await this.deps.checkInApi.push(rows.map(toPushed));
+      await this.deps.checkInApi.push(rows.map((row) => toPushed(row, userId)));
       return [...rows];
     } catch (error) {
       if (isNetworkError(error) || !isRejected(error)) throw error;
@@ -156,7 +159,10 @@ export class CloudSync implements SyncRepository {
         return [];
       }
       const half = Math.ceil(rows.length / 2);
-      return [...(await this.send(rows.slice(0, half))), ...(await this.send(rows.slice(half)))];
+      return [
+        ...(await this.send(userId, rows.slice(0, half))),
+        ...(await this.send(userId, rows.slice(half))),
+      ];
     }
   }
 
@@ -174,11 +180,16 @@ export class CloudSync implements SyncRepository {
       const page = await checkInApi.pull(userId, after, PULL_PAGE);
       changed += await checkIns.applyPulled(userId, page.rows);
       pulled += page.rows.length;
+      if (page.skipped) {
+        // Only how many, never the rows.
+        console.error(`[sync] Check-ins this phone can't read were left out (${page.skipped})`); // TODO(Sentry)
+      }
       if (page.next) {
         await state.setCursor(userId, 'check_ins', page.next);
         after = page.next;
       }
-      if (page.rows.length < PULL_PAGE) return { changed, complete: true };
+      // A short page is the last; so is one with no bookmark to move to (it would only come back).
+      if (!page.next || page.rows.length + page.skipped < PULL_PAGE) return { changed, complete: true };
       onProgress?.({ step: 'updating', done: pulled, total: 0 });
       if (!proceed()) return { changed, complete: false };
       await yieldToApp();
@@ -202,11 +213,14 @@ export class CloudSync implements SyncRepository {
       for (;;) {
         const page = await workoutDayApi.pull(userId, after, PULL_PAGE);
         changed += await workoutDays.applyPulled(userId, page.days);
+        if (page.skipped) {
+          console.error(`[sync] Workout days this phone can't read were left out (${page.skipped})`); // TODO(Sentry)
+        }
         if (page.next) {
           await state.setCursor(userId, 'workout_days', page.next);
           after = page.next;
         }
-        if (page.days.length < PULL_PAGE) return { changed, complete: true };
+        if (!page.next || page.days.length + page.skipped < PULL_PAGE) return { changed, complete: true };
         if (!proceed()) return { changed, complete: false };
         await yieldToApp();
       }

@@ -63,20 +63,44 @@ describe('workoutDayApi', () => {
 
   it('says there is no next page for an empty one', async () => {
     const { client } = fakeSupabase({ data: [] });
-    expect(await createWorkoutDayApi(client).pull('user-1', null, 500)).toEqual({ days: [], next: null });
+    expect(await createWorkoutDayApi(client).pull('user-1', null, 500)).toEqual({
+      days: [],
+      skipped: 0,
+      next: null,
+    });
   });
 
-  it('refuses a response that is not the expected shape', async () => {
-    for (const row of [
-      { ...serverRow, worked_out: 1 },
-      { ...serverRow, date: '1 Oct 2026' },
-      { ...serverRow, updated_at: 'soon' },
-    ]) {
-      const { client } = fakeSupabase({ data: [row] });
-      await expect(createWorkoutDayApi(client).pull('user-1', null, 500)).rejects.toMatchObject({
-        code: 'Unknown',
-      });
-    }
+  it("leaves out days it can't read, and still moves the bookmark past them", async () => {
+    const AT2 = '2026-10-04T10:00:01.5+00:00';
+    const { client } = fakeSupabase({
+      data: [
+        { ...serverRow, date: '12345-01-01' },
+        { date: '2026-10-02', updated_at: AT, worked_out: false },
+        { date: '2026-10-03', updated_at: AT2, worked_out: 1 },
+      ],
+    });
+    const page = await createWorkoutDayApi(client).pull('user-1', null, 500);
+
+    expect(page.days).toEqual([{ date: '2026-10-02', workedOut: false }]);
+    expect(page.skipped).toBe(2);
+    expect(page.next).toEqual({ at: AT2, key: '2026-10-03' });
+  });
+
+  it('never makes a change time after 2100 the bookmark, which would hide every later change', async () => {
+    const { client } = fakeSupabase({
+      data: [serverRow, { date: '2026-10-02', updated_at: '2999-01-01T00:00:00+00:00', worked_out: true }],
+    });
+    const page = await createWorkoutDayApi(client).pull('user-1', null, 500);
+
+    expect(page.days).toHaveLength(2);
+    expect(page.next).toEqual({ at: AT, key: '2026-10-01' });
+  });
+
+  it('refuses a response that is not a list', async () => {
+    const { client } = fakeSupabase({ data: { days: [] } });
+    await expect(createWorkoutDayApi(client).pull('user-1', null, 500)).rejects.toMatchObject({
+      code: 'Unknown',
+    });
   });
 
   it('tells offline, a table that isn’t there, and other failures apart', async () => {
