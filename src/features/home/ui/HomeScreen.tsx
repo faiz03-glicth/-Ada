@@ -161,13 +161,13 @@ function HeatmapCard({ vm }: { vm: HomeViewModel }) {
           <Pressable
             onPress={vm.onToday}
             accessibilityRole="button"
-            accessibilityLabel={`Today, ${checkInCount(vm.todayCount)}`}
+            accessibilityLabel={vm.todayLabel}
             style={styles.todayLink}
             hitSlop={8}
           >
             <View style={styles.dot} />
             <Text variant="caption" tone="secondary">
-              Today · {checkInCount(vm.todayCount)}
+              {vm.todayLine}
             </Text>
           </Pressable>
           {vm.showLegend && <Legend />}
