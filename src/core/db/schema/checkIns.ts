@@ -17,7 +17,11 @@ export const checkIns = sqliteTable(
     activityId: text('activity_id').notNull(),
     note: text('note').notNull().default(''),
   },
-  (table) => [index('check_ins_owner_date').on(table.userId, table.date)],
+  (table) => [
+    index('check_ins_owner_date').on(table.userId, table.date),
+    // What the sync engine still has to send, per account.
+    index('check_ins_owner_dirty').on(table.userId, table.dirty),
+  ],
 );
 
 export type CheckInRow = typeof checkIns.$inferSelect;

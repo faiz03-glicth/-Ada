@@ -9,6 +9,7 @@ import { useAuthAutoRefresh } from '@/core/supabase/useAuthAutoRefresh';
 import { useRouteGuards } from '@/features/auth/hooks/useRouteGuards';
 import { SessionGate } from '@/features/auth/ui/SessionGate';
 import { usePushPendingProfileEdits } from '@/features/profile/hooks/usePushPendingProfileEdits';
+import { useBackgroundSync } from '@/features/sync/hooks/useBackgroundSync';
 import { AppToaster } from '@/shared/ui';
 import { useNavigationMotion } from '@/theme';
 
@@ -42,6 +43,7 @@ function NavigationTheme({ children }: { children: ReactNode }) {
 function RootNavigator() {
   useAuthAutoRefresh();
   usePushPendingProfileEdits();
+  useBackgroundSync();
   const { theme } = useUnistyles();
   const { canEnterApp, canEnterAuth } = useRouteGuards();
   const transitions = useNavigationMotion();

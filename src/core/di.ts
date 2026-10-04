@@ -7,10 +7,13 @@ import { SupabaseAuthRepository } from '@/features/auth/data/SupabaseAuthReposit
 import type { AuthRepository } from '@/features/auth/data/AuthRepository';
 import { LocalCheckInRepository, type CheckInRepository } from '@/features/checkins/data/CheckInRepository';
 import { createCheckInDao } from '@/features/checkins/data/local/checkInDao';
+import { createCheckInApi } from '@/features/checkins/data/remote/checkInApi';
 import { createProfileDao } from '@/features/profile/data/local/profileDao';
 import { LocalFirstProfileRepository } from '@/features/profile/data/LocalFirstProfileRepository';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
 import { createProfileApi } from '@/features/profile/data/remote/profileApi';
+import { createSyncStateDao } from '@/features/sync/data/local/syncStateDao';
+import { CloudSync, type SyncRepository } from '@/features/sync/data/SyncRepository';
 import { deviceTimeZone, nowIso } from '@/shared/lib/date/deviceTimeZone';
 
 import { requireEnv } from './config/env';
@@ -26,7 +29,14 @@ export interface Repositories {
   auth: AuthRepository;
   profile: ProfileRepository;
   checkIns: CheckInRepository;
+  sync: SyncRepository;
 }
+
+/** Lets the app take its turn between sync batches (taps and animations first, then the next batch). */
+const yieldToApp = () =>
+  new Promise<void>((resolve) => {
+    requestIdleCallback(() => resolve(), { timeout: 500 });
+  });
 
 /** Composition root: the only place concrete data sources and services are wired together. */
 export function createRepositories(): Repositories {
@@ -59,11 +69,19 @@ export function createRepositories(): Repositories {
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
+  const checkInDao = createCheckInDao(db);
   const checkIns = new LocalCheckInRepository({
-    dao: createCheckInDao(db),
+    dao: checkInDao,
     uuid: expoCryptoService.uuid,
     now: nowIso,
   });
 
-  return { auth, profile, checkIns };
+  const sync = new CloudSync({
+    checkIns: checkInDao,
+    checkInApi: createCheckInApi(supabase),
+    state: createSyncStateDao(db),
+    yieldToApp,
+  });
+
+  return { auth, profile, checkIns, sync };
 }

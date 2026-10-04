@@ -27,10 +27,33 @@ export interface NewCheckIn {
 export const MAX_NOTE_LENGTH = 280;
 export const LAST_MINUTE_OF_DAY = 24 * 60 - 1;
 
+// Control characters (C0, DEL, C1) and the Unicode line and paragraph separators: the server refuses them.
+const CONTROL_RUN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g;
+// A whole surrogate pair (one emoji), or half of one, which no server can store.
+const SURROGATES = /[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g;
+
+/**
+ * PURE: a note the server will always accept, so a check-in can never be refused and retried forever.
+ * Control characters (line breaks, tabs) become one space, half of a split emoji is dropped, and the note
+ * is trimmed and at most MAX_NOTE_LENGTH long. Used when saving and again before upload (for older notes).
+ */
+export function cleanNote(note: string): string {
+  const cleaned = note
+    .replace(SURROGATES, (match) => (match.length === 2 ? match : ''))
+    .replace(CONTROL_RUN, ' ')
+    .trim();
+  if (cleaned.length <= MAX_NOTE_LENGTH) return cleaned;
+  // The cut can land inside an emoji: drop the half it leaves.
+  return cleaned
+    .slice(0, MAX_NOTE_LENGTH)
+    .replace(/[\ud800-\udbff]$/, '')
+    .trimEnd();
+}
+
 export type CheckInProblem = 'unknownActivity' | 'futureDay' | 'invalidTime' | 'noteTooLong';
 
 /**
- * PURE: checks a check-in before it's saved and tidies it (a trimmed note). A check-in can't be in the
+ * PURE: checks a check-in before it's saved and tidies it (a clean note, see cleanNote). A check-in can't be in the
  * future: not on a later day, and not later today than `nowMinute`.
  */
 export function validateNewCheckIn(
@@ -47,7 +70,7 @@ export function validateNewCheckIn(
   if (input.date === today && minute > nowMinute) return { ok: false, problem: 'invalidTime' };
   const note = input.note.trim();
   if (note.length > MAX_NOTE_LENGTH) return { ok: false, problem: 'noteTooLong' };
-  return { ok: true, value: { ...input, note } };
+  return { ok: true, value: { ...input, note: cleanNote(note) } };
 }
 
 /** What each problem means to the person, and how to fix it. */

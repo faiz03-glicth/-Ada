@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useRepositories } from '@/core/DiProvider';
 import { activityById } from '@/features/activities/domain/catalog';
 import { INTENSITY_LEVELS, intensityLevel } from '@/features/heatmap/domain/intensity';
+import { requestSync } from '@/features/sync/state/syncRequests';
 import { confirm as nativeConfirm, type Confirm } from '@/shared/lib/confirm';
 import { toISODate, type ISODate } from '@/shared/lib/date/isoDate';
 import { checkInCount, dayLabel, formatTime } from '@/shared/lib/format/dates';
@@ -52,13 +53,15 @@ export interface CheckInActionDeps {
   confirm: Confirm;
   toast: { success: (message: ToastMessage) => void; info: (message: Omit<ToastMessage, 'undo'>) => void };
   pulse: (day: ISODate) => void;
+  /** Asks for the change to be backed up soon (does nothing for guests). */
+  requestSync?: () => void;
 }
 
 const COPY = {
   saveFailed: "Couldn't save your check-in. It's still here, so try again.",
   undoFailed: { title: "Couldn't undo", sub: 'The check-in is still saved. You can delete it from its day.' },
   deleteConfirm: (count: number) =>
-    `This removes ${checkInCount(count)} from this device. It can't be undone, so export a copy first.`,
+    `This removes ${checkInCount(count)} from this phone and, when Sync is on, from your account. It can't be undone, so export a copy first.`,
   deleted: (count: number) => ({ title: 'Activity data deleted', sub: `${checkInCount(count)} removed.` }),
   deleteFailed: { title: "Couldn't delete your data", sub: 'Nothing was removed. Please try again.' },
   removeConfirm: (checkIn: CheckIn) =>
@@ -72,9 +75,11 @@ export function createCheckInActions(deps: CheckInActionDeps): CheckInActions {
   const key = checkInsQueryKey(deps.owner);
   const cached = () => deps.queryClient.getQueryData<CheckIn[]>(key);
   // New arrays each time: the index (and so every derived number) is rebuilt once per change.
+  // Runs after every stored write, so each one is also queued for backup.
   const update = (change: (list: CheckIn[]) => CheckIn[]) => {
     if (cached()) deps.queryClient.setQueryData<CheckIn[]>(key, (list) => change(list ?? []));
     else void deps.queryClient.invalidateQueries({ queryKey: key });
+    deps.requestSync?.();
   };
 
   const actions: CheckInActions = {
@@ -209,6 +214,7 @@ export function useCheckInActions(): CheckInActions {
         confirm: nativeConfirm,
         toast: { success: showSuccess, info: showInfo },
         pulse,
+        requestSync,
       }),
     [checkIns, owner, queryClient, pulse],
   );

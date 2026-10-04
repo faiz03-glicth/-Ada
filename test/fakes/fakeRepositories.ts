@@ -3,6 +3,7 @@ import type { AuthRepository } from '@/features/auth/data/AuthRepository';
 import type { AuthUser } from '@/features/auth/domain/types';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
 import type { Profile } from '@/features/profile/domain/Profile';
+import type { SyncRepository } from '@/features/sync/data/SyncRepository';
 
 import { createFakeCheckInRepository, type FakeCheckInRepository } from './fakeCheckIns';
 import { mockFn } from './mockFn';
@@ -67,12 +68,27 @@ export function createFakeProfileRepository(): FakeProfileRepository {
   };
 }
 
+export type FakeSyncRepository = jest.Mocked<SyncRepository>;
+
+/** A sync that has nothing to send or fetch. */
+export function createFakeSyncRepository(): FakeSyncRepository {
+  return {
+    run: mockFn<SyncRepository['run']>(async () => ({ pushed: 0, changed: 0, refused: 0, complete: true })),
+  };
+}
+
 export function createFakeRepositories(
   checkIns: FakeCheckInRepository = createFakeCheckInRepository(),
 ): Repositories & {
   auth: FakeAuthRepository;
   profile: FakeProfileRepository;
   checkIns: FakeCheckInRepository;
+  sync: FakeSyncRepository;
 } {
-  return { auth: createFakeAuthRepository(), profile: createFakeProfileRepository(), checkIns };
+  return {
+    auth: createFakeAuthRepository(),
+    profile: createFakeProfileRepository(),
+    checkIns,
+    sync: createFakeSyncRepository(),
+  };
 }

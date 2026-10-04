@@ -6,6 +6,7 @@ import { checkInsToCsv, checkInsToJson } from '@/features/checkins/domain/export
 import type { CheckIn } from '@/features/checkins/domain/CheckIn';
 import { useCheckInActions } from '@/features/checkins/hooks/useCheckInActions';
 import { checkInsQueryKey, useCheckInOwner, useCheckIns } from '@/features/checkins/hooks/useCheckIns';
+import { useSyncSettingsViewModel } from '@/features/sync/ui/useSyncSettingsViewModel';
 import { goBack, openLegal } from '@/shared/actions';
 import { checkInCount } from '@/shared/lib/format/dates';
 import { haptics } from '@/shared/lib/haptics';
@@ -16,10 +17,12 @@ const NOT_YET = 'Not available yet';
 
 /**
  * Data & privacy. Everything here reflects what Streak really does today: check-ins live on this device
- * (no sync), export goes through the phone's share sheet, and deleting is real (after a confirmation).
- * Features that don't exist yet say so instead of offering a switch that does nothing.
+ * and, for a signed-in account with Sync on (the default), are backed up to the account; export goes
+ * through the phone's share sheet, and deleting is real (after a confirmation). Features that don't exist
+ * yet say so instead of offering a switch that does nothing.
  */
 export function PrivacySettingsScreen() {
+  const sync = useSyncSettingsViewModel();
   const { index } = useCheckIns();
   const owner = useCheckInOwner() ?? null;
   const queryClient = useQueryClient();
@@ -53,10 +56,14 @@ export function PrivacySettingsScreen() {
       <Card tight>
         <ListRow
           title="Sync"
-          description="Check-ins stay on this device. Sync across devices isn't available yet."
+          description={sync.description}
           icon="upload"
           iconColor="blue"
-          value="Off"
+          value={sync.canSync ? undefined : 'Off'}
+          trailing={sync.canSync ? 'toggle' : 'none'}
+          toggleValue={sync.enabled}
+          onToggle={sync.onToggle}
+          testID="privacy-sync"
         />
       </Card>
 
