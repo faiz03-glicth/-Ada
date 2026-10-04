@@ -1,6 +1,7 @@
 import {
   addDays,
   addMonths,
+  daysBetween,
   eachDay,
   firstOfMonth,
   lastOfMonth,
@@ -14,7 +15,8 @@ import {
 } from '@/shared/lib/date/calendar';
 import type { ISODate } from '@/shared/lib/date/isoDate';
 
-import { countOn, type CheckInIndex } from './checkInIndex';
+import { LAST_MINUTE_OF_DAY } from './CheckIn';
+import { checkInsOn, countOn, type CheckInIndex } from './checkInIndex';
 
 /**
  * The derived numbers every screen shows, computed in one place from the check-in index. PURE: `today`
@@ -80,49 +82,93 @@ export interface Trend {
   values: readonly number[];
   /** One per value ('' where the axis shows nothing). */
   labels: readonly string[];
-  /** The average of the periods before the current one, rounded. */
+  /** Check-ins per period over the periods before the current one, to one decimal. */
   average: number;
-  /** How the current period compares with that average, in whole percent (0 when there is no average). */
-  deltaPercent: number;
+  /**
+   * How the current period so far compares with the same stretch of the periods before it (this week's
+   * days up to now against the same days, up to the same time, of the earlier weeks), in whole percent.
+   * A period that has only just begun isn't judged against whole ones. Null when the earlier stretches
+   * had nothing to compare against.
+   */
+  deltaPercent: number | null;
+}
+
+/** One period of the trend (a day, week or month) and its axis label. */
+interface TrendPeriod {
+  from: ISODate;
+  to: ISODate;
+  label: string;
+}
+
+function trendPeriods(range: TrendRange, today: ISODate, weekStart: WeekStart): TrendPeriod[] {
+  if (range === 'W') {
+    const thisWeek = startOfWeek(today, weekStart);
+    return Array.from({ length: 12 }, (_, i) => {
+      const from = addDays(thisWeek, -7 * (11 - i));
+      return { from, to: addDays(from, 6), label: '' };
+    });
+  }
+  if (range === 'M') {
+    const current = monthOf(today);
+    return Array.from({ length: 6 }, (_, i) => {
+      const month = addMonths(current, i - 5);
+      return { from: firstOfMonth(month), to: lastOfMonth(month), label: monthShort(month.month) };
+    });
+  }
+  return Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(today, i - 6);
+    return { from: day, to: day, label: weekdayShort(weekdayOf(day)).slice(0, 1) };
+  });
 }
 
 /**
- * Check-ins per day (last 7 days), week (last 12 weeks) or month (last 6 months), as on Home. The current
- * period is compared with the average of the ones before it.
+ * Check-ins in a period's first `elapsed` + 1 days, the last of them counted only up to `untilMinute`.
+ * A shorter period (February against a 31st) counts whole: its stretch ends on its last day.
  */
-export function trend(index: CheckInIndex, range: TrendRange, today: ISODate, weekStart: WeekStart): Trend {
-  const values: number[] = [];
-  const labels: string[] = [];
-  if (range === 'W') {
-    const thisWeek = startOfWeek(today, weekStart);
-    for (let i = 11; i >= 0; i -= 1) {
-      const start = addDays(thisWeek, -7 * i);
-      values.push(summarize(index, start, addDays(start, 6), today).total);
-      labels.push('');
-    }
-  } else if (range === 'M') {
-    const current = monthOf(today);
-    for (let i = 5; i >= 0; i -= 1) {
-      const month = addMonths(current, -i);
-      values.push(summarize(index, firstOfMonth(month), lastOfMonth(month), today).total);
-      labels.push(monthShort(month.month));
-    }
-  } else {
-    for (let i = 6; i >= 0; i -= 1) {
-      const day = addDays(today, -i);
-      values.push(countOn(index, day));
-      labels.push(weekdayShort(weekdayOf(day)).slice(0, 1));
-    }
+function stretchTotal(
+  index: CheckInIndex,
+  period: TrendPeriod,
+  elapsed: number,
+  untilMinute: number,
+): number {
+  const end = addDays(period.from, elapsed);
+  let total = 0;
+  for (const day of eachDay(period.from, minDay(end, period.to))) {
+    total +=
+      day === end
+        ? checkInsOn(index, day).filter((c) => c.minute <= untilMinute).length
+        : countOn(index, day);
   }
-  const before = values.slice(0, -1);
-  const average = before.length ? Math.round(before.reduce((sum, n) => sum + n, 0) / before.length) : 0;
-  const current = values[values.length - 1] ?? 0;
-  const deltaPercent = average ? Math.round(((current - average) / average) * 100) : 0;
+  return total;
+}
+
+const mean = (values: readonly number[]) =>
+  values.length ? values.reduce((sum, n) => sum + n, 0) / values.length : 0;
+
+/**
+ * Check-ins per day (last 7 days), week (last 12 weeks) or month (last 6 months), as on Home. The current
+ * period so far is compared with the same stretch of the ones before it, up to `nowMinute` (the time of
+ * day now; the whole day when left out).
+ */
+export function trend(
+  index: CheckInIndex,
+  range: TrendRange,
+  today: ISODate,
+  weekStart: WeekStart,
+  nowMinute: number = LAST_MINUTE_OF_DAY,
+): Trend {
+  const periods = trendPeriods(range, today, weekStart);
+  const values = periods.map((p) => summarize(index, p.from, p.to, today).total);
+  const current = periods[periods.length - 1];
+  const elapsed = current ? daysBetween(current.from, today) : 0;
+  const stretches = periods.map((p) => stretchTotal(index, p, elapsed, nowMinute));
+  const usual = mean(stretches.slice(0, -1));
+  const sofar = stretches[stretches.length - 1] ?? 0;
   return {
     unit: range === 'W' ? 'week' : range === 'M' ? 'month' : 'day',
     values,
-    labels,
-    average,
-    deltaPercent,
+    labels: periods.map((p) => p.label),
+    average: Math.round(mean(values.slice(0, -1)) * 10) / 10,
+    deltaPercent: usual > 0 ? Math.round(((sofar - usual) / usual) * 100) : null,
   };
 }

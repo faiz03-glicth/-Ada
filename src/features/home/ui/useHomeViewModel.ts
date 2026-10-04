@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { useOpenMonth } from '@/features/calendar/hooks/useOpenMonth';
+import { minuteOfDay } from '@/features/checkins/domain/CheckIn';
 import { checkInsOn, countOn } from '@/features/checkins/domain/checkInIndex';
 import { currentStreak, summarize, trend, type TrendRange } from '@/features/checkins/domain/stats';
 import { useCheckIns } from '@/features/checkins/hooks/useCheckIns';
@@ -84,9 +85,11 @@ export function useHomeViewModel() {
     }),
     [index, today, weekStart],
   );
+  // The current period is compared up to the time it is now, so it's read again on every render.
+  const nowMinute = minuteOfDay(new Date());
   const trendData = useMemo(
-    () => trend(index, trendRange, today, weekStart),
-    [index, trendRange, today, weekStart],
+    () => trend(index, trendRange, today, weekStart, nowMinute),
+    [index, trendRange, today, weekStart, nowMinute],
   );
   const todayCheckIns = checkInsOn(index, today);
   // The trend means something once there's a week to compare: until then its card says when it will.

@@ -177,7 +177,7 @@ function HeatmapCard({ vm }: { vm: HomeViewModel }) {
 
 function TrendCard({ vm }: { vm: HomeViewModel }) {
   const { trend } = vm;
-  const up = trend.deltaPercent >= 0;
+  const up = (trend.deltaPercent ?? 0) >= 0;
   return (
     <Card style={styles.trendCard}>
       <View style={styles.between}>
@@ -211,7 +211,7 @@ function TrendCard({ vm }: { vm: HomeViewModel }) {
               <Text variant="footnote" tone="secondary">
                 avg / {trend.unit}
               </Text>
-              {trend.average > 0 && (
+              {trend.deltaPercent !== null && (
                 <Pill
                   tone={up ? 'accent' : 'default'}
                   icon={up ? 'trending-up' : 'trending-down'}

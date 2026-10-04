@@ -62,8 +62,9 @@ describe('stats', () => {
     const t = trend(index, 'D', TODAY, 'mon');
     expect(t.values).toEqual([1, 1, 1, 0, 1, 1, 1]);
     expect(t.labels).toEqual(['F', 'S', 'S', 'M', 'T', 'W', 'T']);
-    expect(t.average).toBe(1);
-    expect(t.deltaPercent).toBe(0);
+    // 5 check-ins over the 6 days before: 0.83, shown to one decimal; today's 1 is 20% above it.
+    expect(t.average).toBe(0.8);
+    expect(t.deltaPercent).toBe(20);
   });
 });
 
