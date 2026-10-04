@@ -23,3 +23,6 @@ for migration in "$migrations"/0002_*.sql "$migrations"/0003_*.sql; do
   [ -e "$migration" ] && run "$migration"
 done
 run "$here/20_profile_checks.sql" 2>&1 | grep -E "PASS|ERROR"
+if [ -e "$migrations/0003_check_ins.sql" ]; then
+  run "$here/30_check_in_checks.sql" 2>&1 | grep -E "PASS|ERROR"
+fi
