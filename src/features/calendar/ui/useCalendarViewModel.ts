@@ -22,6 +22,7 @@ import {
 } from '@/shared/lib/date/calendar';
 import type { ISODate } from '@/shared/lib/date/isoDate';
 import { useToday } from '@/shared/lib/date/useToday';
+import { checkInCount } from '@/shared/lib/format/dates';
 import { haptics } from '@/shared/lib/haptics';
 import { useCalendarPreferencesStore } from '@/shared/state/calendarPreferencesStore';
 import type { HeatmapMonth } from '@/shared/ui';
@@ -101,7 +102,7 @@ export function useCalendarViewModel(options: HeatmapOptions) {
     }
     return {
       ...summary,
-      busiest: busiest ? `${monthShort(shown.month)} ${busiest.day} · ${busiest.count} check-ins` : '—',
+      busiest: busiest ? `${monthShort(shown.month)} ${busiest.day} · ${checkInCount(busiest.count)}` : '—',
     };
   }, [index, shown, today]);
 

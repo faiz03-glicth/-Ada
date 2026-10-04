@@ -3,7 +3,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { indexCheckIns } from '@/features/checkins/domain/checkInIndex';
 import { openDay } from '@/shared/actions';
-import { monthLong } from '@/shared/lib/date/calendar';
+import { monthLong, monthShort } from '@/shared/lib/date/calendar';
 import { testUser } from '@test/fakes/fakeRepositories';
 import { checkInDaysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
 import { renderWithApp } from '@test/providers';
@@ -54,5 +54,8 @@ describe.each(SCHEMES)('Calendar in %s', (scheme) => {
     fireEvent.press(screen.getByTestId(`tile-${today()}`));
     expect(openDay).toHaveBeenCalledWith(today());
     expect(screen.getByText('Busiest day')).toBeTruthy();
+    // One check-in is "1 check-in", not "1 check-ins".
+    const now = new Date();
+    expect(screen.getByText(`${monthShort(now.getMonth())} ${now.getDate()} · 1 check-in`)).toBeTruthy();
   });
 });
