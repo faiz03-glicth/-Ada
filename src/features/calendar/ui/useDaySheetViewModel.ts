@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ACTIVITIES } from '@/features/activities/domain/catalog';
+import { dailyGoalProgress } from '@/features/activities/domain/dailyGoal';
+import { useActivityPreferencesStore } from '@/features/activities/state/activityPreferencesStore';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { quickCheckInMinute, startingActivityId, type CheckIn } from '@/features/checkins/domain/CheckIn';
 import { checkInsOn, countOn } from '@/features/checkins/domain/checkInIndex';
@@ -30,6 +32,7 @@ export function useDaySheetViewModel(date: ISODate | null) {
   const { index } = useCheckIns();
   const actions = useCheckInActions();
   const onboardingPicks = useAuthStore((s) => s.onboardingDraft.selectedActivityIds);
+  const dailyGoal = useActivityPreferencesStore((s) => s.dailyGoal);
 
   // Check in sits where a toast would land, and it's pressed again and again: toasts go to the top here.
   useToastsAtTop();
@@ -115,6 +118,8 @@ export function useDaySheetViewModel(date: ISODate | null) {
   const checkIns = checkInsOn(index, chosen);
   const level = intensityLevel(checkIns.length);
   const info = INTENSITY_LEVELS[level];
+  const goal = dailyGoalProgress(checkIns.length, dailyGoal);
+  const goalSpoken = goal.met ? 'met' : `${checkIns.length} of ${dailyGoal}`;
 
   return {
     title: `${monthLong(month)} ${year}`,
@@ -129,7 +134,9 @@ export function useDaySheetViewModel(date: ISODate | null) {
     count: checkIns.length,
     level,
     levelLabel: `${info.name} · ${info.rangeLabel}`,
-    summaryLabel: `${checkInCount(checkIns.length)}, ${info.name}`,
+    goalMet: goal.met,
+    goalLabel: goal.pill,
+    summaryLabel: `${checkInCount(checkIns.length)}, ${info.name}, daily goal ${goalSpoken}`,
     checkIns,
     onOptions,
 

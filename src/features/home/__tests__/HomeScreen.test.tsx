@@ -1,5 +1,6 @@
-import { fireEvent, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 
+import { useActivityPreferencesStore } from '@/features/activities/state/activityPreferencesStore';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { openCheckIn, openDay, openHeatmap } from '@/shared/actions';
 import { monthLong } from '@/shared/lib/date/calendar';
@@ -15,6 +16,7 @@ jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
 beforeEach(() => {
   jest.clearAllMocks();
   useAuthStore.getState().setUser(testUser());
+  useActivityPreferencesStore.setState({ dailyGoal: 4 });
 });
 
 describe.each(SCHEMES)('Home in %s', (scheme) => {
@@ -27,7 +29,7 @@ describe.each(SCHEMES)('Home in %s', (scheme) => {
     ]);
     renderWithApp(<HomeScreen />, { scheme, repositories });
 
-    expect(await screen.findByText('Today · 2 check-ins')).toBeTruthy();
+    expect(await screen.findByText('Today · 2 of 4 check-ins')).toBeTruthy();
     expect(screen.getByRole('header', { name: 'Your activity' })).toBeTruthy();
     expect(screen.getByLabelText('Day streak, 3')).toBeTruthy();
     // Today's list, newest first, with the note.
@@ -48,16 +50,29 @@ describe.each(SCHEMES)('Home in %s', (scheme) => {
     // The days themselves are no longer buttons.
     expect(screen.queryAllByRole('button', { name: /: \d+ check-in/ })).toEqual([]);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Today, 1 check-in' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Today, 1 of 4 check-ins' }));
     expect(openDay).toHaveBeenCalledTimes(2);
 
     fireEvent.press(screen.getByHintText('Opens the full heatmap'));
     expect(openHeatmap).toHaveBeenCalledWith(expect.objectContaining({ view: 'year' }));
   });
 
+  it('shows the daily goal on the today line, met or not, and follows the setting', async () => {
+    useActivityPreferencesStore.setState({ dailyGoal: 2 });
+    const repositories = repositoriesWith([checkInDaysAgo(0), checkInDaysAgo(0), checkInDaysAgo(1)]);
+    renderWithApp(<HomeScreen />, { scheme, repositories });
+
+    expect(await screen.findByText('Today · 2 check-ins · Goal met')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Today, 2 check-ins, daily goal met' })).toBeTruthy();
+
+    act(() => useActivityPreferencesStore.getState().setDailyGoal(3));
+    expect(screen.getByText('Today · 2 of 3 check-ins')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Today, 2 of 3 check-ins' })).toBeTruthy();
+  });
+
   it('steps back through months, and switches the trend range', async () => {
     renderWithApp(<HomeScreen />, { scheme, repositories: repositoriesWith([checkInDaysAgo(0)]) });
-    await screen.findByText('Today · 1 check-in');
+    await screen.findByText('Today · 1 of 4 check-ins');
     const next = screen.getByRole('button', { name: 'Next months' });
     expect(next.props.accessibilityState).toMatchObject({ disabled: true });
     fireEvent.press(screen.getByRole('button', { name: 'Previous months' }));

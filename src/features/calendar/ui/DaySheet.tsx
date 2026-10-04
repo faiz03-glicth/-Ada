@@ -47,6 +47,8 @@ export function DaySheet({ date }: { date: ISODate | null }) {
         count={vm.count}
         level={vm.level}
         levelLabel={vm.levelLabel}
+        goalMet={vm.goalMet}
+        goalLabel={vm.goalLabel}
         summaryLabel={vm.summaryLabel}
       />
       <LogControls
@@ -71,6 +73,8 @@ interface DaySummaryProps {
   count: number;
   level: HeatLevel;
   levelLabel: string;
+  goalMet: boolean;
+  goalLabel: string;
   summaryLabel: string;
 }
 
@@ -81,6 +85,8 @@ const DaySummary = memo(function DaySummary({
   count,
   level,
   levelLabel,
+  goalMet,
+  goalLabel,
   summaryLabel,
 }: DaySummaryProps) {
   const change = useDayChangeMotion(day);
@@ -107,7 +113,14 @@ const DaySummary = memo(function DaySummary({
               check-in{count === 1 ? '' : 's'}
             </Text>
           </View>
-          <Pill label={levelLabel} tone={level > 0 ? 'accent' : 'default'} />
+          <View style={styles.pills}>
+            <Pill label={levelLabel} tone={level > 0 ? 'accent' : 'default'} />
+            <Pill
+              label={goalLabel}
+              icon={goalMet ? 'check' : undefined}
+              tone={goalMet ? 'accent' : 'default'}
+            />
+          </View>
         </View>
       </View>
     </Animated.View>
@@ -197,7 +210,8 @@ const styles = StyleSheet.create((theme) => ({
   grow: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: theme.spacing.md },
   summary: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  summaryText: { gap: 6 },
+  summaryText: { flex: 1, gap: 6 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   countRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   timeline: { gap: 12 },
   empty: { paddingVertical: 18 },

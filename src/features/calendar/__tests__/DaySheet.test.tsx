@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { toast } from 'sonner-native';
 
+import { useActivityPreferencesStore } from '@/features/activities/state/activityPreferencesStore';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { minuteOfDay } from '@/features/checkins/domain/CheckIn';
 import { goBack, openCheckIn } from '@/shared/actions';
@@ -42,6 +43,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   chosenDayMemory.clear();
   useAuthStore.getState().setUser(testUser());
+  useActivityPreferencesStore.setState({ dailyGoal: 4 });
   haptic = jest.spyOn(haptics, 'selection').mockImplementation(() => undefined);
   tick = jest.spyOn(sounds, 'play').mockImplementation(() => undefined);
 });
@@ -66,6 +68,7 @@ describe.each(SCHEMES)('Day sheet in %s', (scheme) => {
     expect(wheel().props.accessibilityValue).toEqual({ text: `${longDate(dayOf(10))}, 1 check-in` });
     expect(screen.getByTestId('day-count')).toHaveTextContent('1');
     expect(screen.getByText('Light · 1 check-in')).toBeTruthy();
+    expect(screen.getByText('Goal · 1 of 4')).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Options for Walk at / })).toBeTruthy();
     // No second step and no second date control.
     expect(screen.queryByText(/^Open /)).toBeNull();
@@ -74,6 +77,24 @@ describe.each(SCHEMES)('Day sheet in %s', (scheme) => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     expect(goBack).toHaveBeenCalled();
+  });
+
+  it('shows the daily goal for the chosen day, met or not', async () => {
+    useActivityPreferencesStore.setState({ dailyGoal: 2 });
+    const repositories = repositoriesWith([
+      testCheckIn({ id: 'a', date: dayOf(10) }),
+      testCheckIn({ id: 'b', date: dayOf(10) }),
+      testCheckIn({ id: 'c', date: dayOf(11) }),
+    ]);
+    renderWithApp(<DaySheet date={dayOf(10)} />, { scheme, repositories });
+
+    expect(await screen.findByText('Goal met')).toBeTruthy();
+    expect(screen.getByLabelText('2 check-ins, Moderate, daily goal met')).toBeTruthy();
+
+    swipe('increment');
+    expect(await screen.findByText('Goal · 1 of 2')).toBeTruthy();
+    expect(screen.getByLabelText('1 check-in, Light, daily goal 1 of 2')).toBeTruthy();
+    expect(screen.queryByText('Goal met')).toBeNull();
   });
 
   it('changes day with the wheel: everything below follows, felt and heard once, and remembered', async () => {

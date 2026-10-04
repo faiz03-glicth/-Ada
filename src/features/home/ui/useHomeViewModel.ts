@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { dailyGoalProgress } from '@/features/activities/domain/dailyGoal';
+import { useActivityPreferencesStore } from '@/features/activities/state/activityPreferencesStore';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { useOpenMonth } from '@/features/calendar/hooks/useOpenMonth';
 import { minuteOfDay } from '@/features/checkins/domain/CheckIn';
@@ -49,6 +51,7 @@ export function useHomeViewModel() {
   const showLegend = useCalendarPreferencesStore((s) => s.showLegend);
   const outlineToday = useCalendarPreferencesStore((s) => s.outlineToday);
   const pulseDay = useCheckInFeedbackStore((s) => s.pulseDay);
+  const dailyGoal = useActivityPreferencesStore((s) => s.dailyGoal);
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile(user);
 
@@ -92,6 +95,7 @@ export function useHomeViewModel() {
     [index, trendRange, today, weekStart, nowMinute],
   );
   const todayCheckIns = checkInsOn(index, today);
+  const todayGoal = dailyGoalProgress(todayCheckIns.length, dailyGoal);
   // The trend means something once there's a week to compare: until then its card says when it will.
   const firstDay = index.days[index.days.length - 1];
   const trendReady = firstDay !== undefined && firstDay <= addDays(today, -7);
@@ -118,7 +122,9 @@ export function useHomeViewModel() {
     canGoNewer: monthsBack > 0,
     showLegend,
     pulseDay,
-    todayCount: todayCheckIns.length,
+    /** The today line: today's check-ins against the daily goal. */
+    todayLine: `Today · ${todayGoal.line}`,
+    todayLabel: `Today, ${todayGoal.spoken}`,
 
     streak: stats.streak,
     activeDays: period.activeDays,
