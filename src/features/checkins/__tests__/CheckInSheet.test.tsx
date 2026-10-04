@@ -1,3 +1,4 @@
+import type { FakeableAPI } from '@jest/fake-timers';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { toast } from 'sonner-native';
 
@@ -12,6 +13,24 @@ import { SCHEMES } from '@test/render';
 import { CheckInSheet } from '../ui/CheckInSheet';
 
 jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
+
+/** Everything but Date, for tests that move the clock without running timers. */
+const REAL_TIMERS: FakeableAPI[] = [
+  'hrtime',
+  'nextTick',
+  'performance',
+  'queueMicrotask',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'requestIdleCallback',
+  'cancelIdleCallback',
+  'setImmediate',
+  'clearImmediate',
+  'setInterval',
+  'clearInterval',
+  'setTimeout',
+  'clearTimeout',
+];
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -53,6 +72,28 @@ describe.each(SCHEMES)('Check-in sheet in %s', (scheme) => {
     expect(goBack).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Check in' })).toBeTruthy();
+  });
+
+  it('logs "Now" at the moment Check in is pressed, even after minutes with the sheet open', async () => {
+    // Only the clock is faked: timers and animations run as usual.
+    jest.useFakeTimers({ now: new Date(2026, 9, 5, 9, 0), doNotFake: REAL_TIMERS });
+    try {
+      const repositories = repositoriesWith([]);
+      renderWithApp(<CheckInSheet date={null} />, { scheme, repositories });
+      const checkIn = await screen.findByRole('button', { name: 'Check in' });
+
+      // Four minutes writing a note, then Check in.
+      jest.setSystemTime(new Date(2026, 9, 5, 9, 4));
+      fireEvent.press(checkIn);
+
+      await waitFor(() => expect(goBack).toHaveBeenCalled());
+      expect(repositories.checkIns.add).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ date: '2026-10-05', minute: 9 * 60 + 4 }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('picks a time today, and needs no time for another day', async () => {

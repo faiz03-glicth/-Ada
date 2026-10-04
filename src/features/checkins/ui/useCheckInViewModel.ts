@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ACTIVITIES, isActivityId } from '@/features/activities/domain/catalog';
 import { useAuthStore } from '@/features/auth/state/authStore';
@@ -26,6 +26,7 @@ export const WHEN_OPTIONS = [
 /** "30 min ago", and how far the picked time moves per step. */
 export const EARLIER_MINUTES = 30;
 export const PICK_STEP_MINUTES = 15;
+const MINUTE_MS = 60_000;
 
 /**
  * The check-in sheet: pick an activity, optionally when and a note, and check in. Two taps is enough
@@ -48,7 +49,15 @@ export function useCheckInViewModel(date: ISODate | null, initialActivityId?: st
       : startingActivityId(index.latest, onboardingPicks),
   );
   const [when, setWhen] = useState<WhenChoice>('now');
-  const nowMinute = minuteOfDay(new Date());
+  // The sheet can stay open for minutes (a long note), so the time it shows follows the clock, and Check in
+  // reads the clock again when it's pressed.
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const nextMinute = MINUTE_MS - (clock.getSeconds() * 1000 + clock.getMilliseconds());
+    const timer = setTimeout(() => setClock(new Date()), nextMinute);
+    return () => clearTimeout(timer);
+  }, [clock]);
+  const nowMinute = minuteOfDay(clock);
   const [picked, setPicked] = useState(() => Math.floor(nowMinute / PICK_STEP_MINUTES) * PICK_STEP_MINUTES);
   // The note lives in the field itself (uncontrolled), so typing never re-renders the sheet and nothing
   // else updating can ever reset it.
@@ -56,13 +65,16 @@ export function useCheckInViewModel(date: ISODate | null, initialActivityId?: st
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const minute = !isToday
-    ? OTHER_DAY_MINUTE
-    : when === 'now'
-      ? nowMinute
-      : when === 'earlier'
-        ? Math.max(0, nowMinute - EARLIER_MINUTES)
-        : Math.min(picked, nowMinute);
+  /** The time a check-in made at `currentMinute` is logged at, for the choice made. */
+  const minuteAt = (currentMinute: number) =>
+    !isToday
+      ? OTHER_DAY_MINUTE
+      : when === 'now'
+        ? currentMinute
+        : when === 'earlier'
+          ? Math.max(0, currentMinute - EARLIER_MINUTES)
+          : Math.min(picked, currentMinute);
+  const minute = minuteAt(nowMinute);
 
   const current = countOn(index, day);
   const next = current + 1;
@@ -71,7 +83,12 @@ export function useCheckInViewModel(date: ISODate | null, initialActivityId?: st
     if (saving) return;
     setSaving(true);
     setError(null);
-    const result = await actions.save({ date: day, minute, activityId, note: note.current });
+    const result = await actions.save({
+      date: day,
+      minute: minuteAt(minuteOfDay(new Date())),
+      activityId,
+      note: note.current,
+    });
     if (result.ok) {
       goBack();
       actions.announce(result.checkIn);
