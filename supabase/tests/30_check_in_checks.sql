@@ -7,10 +7,27 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
 
--- Push inserts new rows; user_id is always the caller's, whatever the row says.
+-- A batch with a row for another account is refused whole: nothing is stored, not even the rows that
+-- name the caller. (The phone sends the account it is signed in as; a mismatch means the session changed.)
+do $$ begin
+  begin
+    perform public.push_check_ins(jsonb_build_array(
+      jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000001', 'user_id', '00000000-0000-0000-0000-000000000001',
+        'date', '2026-10-01', 'minute', 480, 'activity_id', 'walk', 'note', 'Morning walk',
+        'created_at', '2026-10-01T08:00:00Z', 'updated_at', '2026-10-01T08:00:00Z', 'deleted_at', null),
+      jsonb_build_object('id', 'c0000000-0000-0000-0000-0000000000a9', 'user_id', '00000000-0000-0000-0000-000000000002',
+        'date', '2026-10-01', 'minute', 480, 'activity_id', 'walk', 'note', '',
+        'created_at', '2026-10-01T08:00:00Z', 'updated_at', '2026-10-01T08:00:00Z', 'deleted_at', null)));
+    raise exception 'a row for another account was accepted';
+  exception when insufficient_privilege then null; end;
+  assert (select count(*) from public.check_ins) = 0, 'a refused batch stores nothing';
+  raise notice 'PASS a batch naming another account is refused whole';
+end $$;
+
+-- Push inserts new rows, as the caller: user_id comes from the session, and a row may omit it.
 do $$ begin
   perform public.push_check_ins(jsonb_build_array(
-    jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000001', 'user_id', '00000000-0000-0000-0000-000000000002',
+    jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000001', 'user_id', '00000000-0000-0000-0000-000000000001',
       'date', '2026-10-01', 'minute', 480, 'activity_id', 'walk', 'note', 'Morning walk',
       'created_at', '2026-10-01T08:00:00Z', 'updated_at', '2026-10-01T08:00:00Z', 'deleted_at', null),
     jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000002',
@@ -18,8 +35,8 @@ do $$ begin
       'created_at', '2026-10-02T00:00:00Z', 'updated_at', '2026-10-02T00:00:00Z', 'deleted_at', null)
   ));
   assert (select count(*) from public.check_ins) = 2, 'both rows stored';
-  assert (select user_id from public.check_ins where id = 'c0000000-0000-0000-0000-000000000001')
-    = '00000000-0000-0000-0000-000000000001', 'user_id is the caller''s, not the row''s';
+  assert (select count(*) from public.check_ins where user_id = '00000000-0000-0000-0000-000000000001') = 2,
+    'user_id is the caller''s';
   raise notice 'PASS push inserts, as the caller';
 end $$;
 
@@ -61,6 +78,29 @@ end $$;
 do $$ begin
   assert (select count(*) from public.check_ins where deleted_at is not null) = 1, 'tombstone readable';
   raise notice 'PASS tombstones are readable by their owner';
+end $$;
+
+-- A deleted check-in keeps no note, even though the deletion was sent with one; restoring it (Undo) sends
+-- the note again and it comes back.
+do $$ begin
+  assert (select note from public.check_ins where id = 'c0000000-0000-0000-0000-000000000001') = '',
+    'the deleted row''s note was blanked';
+
+  perform public.push_check_ins(jsonb_build_array(
+    jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000001',
+      'date', '2026-10-01', 'minute', 480, 'activity_id', 'walk', 'note', 'Morning walk',
+      'created_at', '2026-10-01T08:00:00Z', 'updated_at', '2026-10-03T10:00:00Z', 'deleted_at', null)));
+  assert (select note = 'Morning walk' and deleted_at is null from public.check_ins
+          where id = 'c0000000-0000-0000-0000-000000000001'), 'a restore brings the note back';
+
+  perform public.push_check_ins(jsonb_build_array(
+    jsonb_build_object('id', 'c0000000-0000-0000-0000-000000000001',
+      'date', '2026-10-01', 'minute', 480, 'activity_id', 'walk', 'note', 'Morning walk',
+      'created_at', '2026-10-01T08:00:00Z', 'updated_at', '2026-10-03T11:00:00Z',
+      'deleted_at', '2026-10-03T11:00:00Z')));
+  assert (select note = '' and deleted_at is not null from public.check_ins
+          where id = 'c0000000-0000-0000-0000-000000000001'), 'deleted again, blank again';
+  raise notice 'PASS a deleted check-in keeps no note; a restore brings it back';
 end $$;
 
 -- A clock far ahead can't make an edit unbeatable.
@@ -128,6 +168,37 @@ do $$ begin
   perform pg_temp.push_one('2026-10-01', 1439, 'custom_activity-2', repeat('é', 280));
   perform pg_temp.push_one((current_date + 1)::text, 0, 'walk', 'Ünïcödé ✓ and emoji 🏃');
   raise notice 'PASS bad values are refused, good ones kept';
+end $$;
+
+-- Times must be real: a row holding infinity, a BC date or year 12345 would stop other phones' pulls there.
+create function pg_temp.push_at(p_created text, p_updated text, p_deleted text) returns void
+language sql as $$
+  select public.push_check_ins(jsonb_build_array(jsonb_build_object(
+    'id', gen_random_uuid(), 'date', '2026-10-01', 'minute', 0, 'activity_id', 'walk', 'note', '',
+    'created_at', p_created, 'updated_at', p_updated, 'deleted_at', p_deleted)));
+$$;
+do $$ begin
+  begin perform pg_temp.push_at('infinity', '2026-10-01T00:00:00Z', null); raise exception 'infinity created_at accepted';
+  exception when check_violation then null; end;
+  begin perform pg_temp.push_at('0001-01-01 00:00:00+00 BC', '2026-10-01T00:00:00Z', null);
+    raise exception 'BC created_at accepted';
+  exception when check_violation then null; end;
+  begin perform pg_temp.push_at('2026-10-01T00:00:00Z', '-infinity', null); raise exception '-infinity updated_at accepted';
+  exception when check_violation then null; end;
+  begin perform pg_temp.push_at('2026-10-01T00:00:00Z', '1999-12-31T23:59:59Z', null);
+    raise exception '1999 updated_at accepted';
+  exception when check_violation then null; end;
+  begin perform pg_temp.push_at('2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', '12345-01-01 00:00:00+00');
+    raise exception 'year 12345 deleted_at accepted';
+  exception when check_violation then null; end;
+  begin perform pg_temp.push_at('2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z', 'infinity');
+    raise exception 'infinity deleted_at accepted';
+  exception when check_violation then null; end;
+  -- A future updated_at (infinity too) is clamped to now, never stored as it was sent.
+  perform pg_temp.push_at('2026-10-01T00:00:00Z', 'infinity', null);
+  assert (select count(*) from public.check_ins where updated_at = 'infinity') = 0, 'infinity updated_at stored';
+  perform pg_temp.push_at('2000-01-01T00:00:00Z', '2026-10-01T00:00:00Z', '2026-10-02T00:00:00Z');
+  raise notice 'PASS times must be real: no infinity, BC or far-future dates';
 end $$;
 
 -- A batch is at most 500 check-ins, and must be an array.
