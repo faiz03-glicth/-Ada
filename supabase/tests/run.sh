@@ -19,12 +19,16 @@ run() {
 run "$here/00_supabase_stub.sql"
 run "$migrations/0001_profiles.sql"
 run "$here/10_existing_rows.sql"   # rows as they were before hardening
-for migration in "$migrations"/0002_*.sql "$migrations"/0003_*.sql; do
+for migration in "$migrations"/0002_*.sql "$migrations"/0003_*.sql "$migrations"/0004_*.sql; do
   [ -e "$migration" ] && run "$migration"
 done
 run "$here/20_profile_checks.sql" 2>&1 | grep -E "PASS|ERROR"
 if [ -e "$migrations/0003_check_ins.sql" ]; then
   run "$here/30_check_in_checks.sql" 2>&1 | grep -E "PASS|ERROR"
+  # The read-only live check (the one to paste into the Supabase SQL editor): every core rule, the rows
+  # numbered below 20, must say true on a fresh install.
+  missing="$(run "$here/live_check.sql" 2>&1 | awk -F'|' '$1+0>0 && $1+0<20 && $3 ~ /f/')"
+  if [ -n "$missing" ]; then echo "ERROR live check, missing: $missing"; else echo "PASS live check: every core rule is in place"; fi
 fi
 # Teras's workout_days (from the Teras repo beside this one, read only) and what Streak reads from it.
 teras="$here/../../../Teras/supabase/migrations/0001_workout_days.sql"
