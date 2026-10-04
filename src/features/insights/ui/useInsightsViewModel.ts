@@ -11,6 +11,7 @@ import { useCalendarPreferencesStore } from '@/shared/state/calendarPreferencesS
 import {
   DAYS_FOR_INSIGHTS,
   insightTip,
+  PATTERN_DAYS,
   patterns,
   rangeInsights,
   TIMES_OF_DAY,
@@ -77,8 +78,19 @@ export function useInsightsViewModel() {
     activePercentOfRange: percent(summary.activeDays, summary.days),
     streaks,
 
-    consistency: { activePercent: found.activePercent, daysByLevel: found.daysByLevel },
-    bestWeekday: weekdayLong(found.bestWeekday),
+    consistency: {
+      activePercent: found.activePercent,
+      daysByLevel: found.daysByLevel,
+      // Someone who started 10 days ago is judged on those 10 days, not on 80 they couldn't have logged.
+      period:
+        found.days >= PATTERN_DAYS
+          ? `the last ${PATTERN_DAYS} days`
+          : `the ${found.days} day${found.days === 1 ? '' : 's'} since your first check-in`,
+    },
+    /** The longest stretch the pattern cards look back over. */
+    patternDays: PATTERN_DAYS,
+    /** Null when nothing was logged in the window: no weekday stands out. */
+    bestWeekday: found.bestWeekday === null ? null : weekdayLong(found.bestWeekday),
     weekdays: weekdayOrder(weekStart).map((weekday) => ({
       key: weekday,
       label: weekdayShort(weekday).slice(0, 2),

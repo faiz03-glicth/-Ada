@@ -162,7 +162,7 @@ function Ready({ vm }: { vm: InsightsViewModel }) {
           <Text variant="footnote" weight="semibold">
             {vm.consistency.activePercent}%
           </Text>{' '}
-          of the last 90 days.
+          of {vm.consistency.period}.
         </Text>
         <StackBar
           segments={vm.consistency.daysByLevel.map((days, level) => ({
@@ -201,18 +201,28 @@ function Ready({ vm }: { vm: InsightsViewModel }) {
         <Text variant="headline" accessibilityRole="header">
           Your best days
         </Text>
-        <Text variant="footnote" tone="secondary" style={styles.lead}>
-          <Text variant="footnote" weight="semibold">
-            {vm.bestWeekday}
-          </Text>{' '}
-          is when you check in most.
-        </Text>
+        {vm.bestWeekday ? (
+          <Text variant="footnote" tone="secondary" style={styles.lead}>
+            <Text variant="footnote" weight="semibold">
+              {vm.bestWeekday}
+            </Text>{' '}
+            is when you check in most.
+          </Text>
+        ) : (
+          <Text variant="footnote" tone="secondary" style={styles.lead}>
+            No check-ins in the last {vm.patternDays} days, so no day stands out yet.
+          </Text>
+        )}
         <BarChart
           values={vm.weekdays.map((day) => day.value)}
           height={90}
           highlight="max"
           labels={vm.weekdays.map((day) => day.label)}
-          accessibilityLabel={`${vm.bestWeekday} is when you check in most`}
+          accessibilityLabel={
+            vm.bestWeekday
+              ? `${vm.bestWeekday} is when you check in most`
+              : `No check-ins in the last ${vm.patternDays} days`
+          }
         />
       </Card>
 

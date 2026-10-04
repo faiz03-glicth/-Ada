@@ -114,7 +114,8 @@ describe('insights', () => {
     expect(p.total).toBe(2);
     expect(p.bestWeekday).toBe(4);
     expect(p.byTimeOfDay).toEqual({ morning: 1, afternoon: 0, evening: 1, night: 0 });
-    expect(p.daysByLevel).toEqual([89, 0, 1, 0, 0]);
+    // The first check-in is today: the window is that one day, not 89 days before it.
+    expect(p.daysByLevel).toEqual([0, 0, 1, 0, 0]);
     expect(p.byActivity.slice(0, 2).map((a) => a.count)).toEqual([1, 1]);
   });
 

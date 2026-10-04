@@ -128,6 +128,11 @@ export function timeOfDay(minute: number): TimeOfDay {
 }
 
 export interface Patterns {
+  /**
+   * Days the window covers: the last PATTERN_DAYS days, or fewer when the first check-in is more recent
+   * (days before someone started aren't days they missed).
+   */
+  days: number;
   /** Check-ins in the window. */
   total: number;
   /** Days in the window at each intensity level (0…4). */
@@ -136,14 +141,14 @@ export interface Patterns {
   activePercent: number;
   /** Check-ins per weekday (0 = Sunday). */
   byWeekday: readonly number[];
-  /** The weekday with the most check-ins (0 = Sunday). */
-  bestWeekday: number;
+  /** The weekday with the most check-ins (0 = Sunday); null when the window has none. */
+  bestWeekday: number | null;
   byTimeOfDay: Readonly<Record<TimeOfDay, number>>;
   /** Every activity with its check-ins, most first (ties keep the catalog's order). */
   byActivity: readonly { activity: Activity; count: number }[];
 }
 
-/** Patterns over the last PATTERN_DAYS days, today included. */
+/** Patterns over the last PATTERN_DAYS days (from the first check-in, if that's later), today included. */
 export function patterns(index: CheckInIndex, today: ISODate): Patterns {
   const daysByLevel: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   const byWeekday = [0, 0, 0, 0, 0, 0, 0];
@@ -151,7 +156,12 @@ export function patterns(index: CheckInIndex, today: ISODate): Patterns {
   const perActivity = new Map<string, number>();
   let total = 0;
 
-  for (const day of eachDay(addDays(today, -(PATTERN_DAYS - 1)), today)) {
+  const windowStart = addDays(today, -(PATTERN_DAYS - 1));
+  const firstDay = index.days[index.days.length - 1];
+  const from = firstDay !== undefined && firstDay > windowStart && firstDay <= today ? firstDay : windowStart;
+  const window = eachDay(from, today);
+
+  for (const day of window) {
     const checkIns = checkInsOn(index, day);
     daysByLevel[intensityLevel(checkIns.length) as IntensityLevel] += 1;
     const weekday = weekdayOf(day);
@@ -165,11 +175,12 @@ export function patterns(index: CheckInIndex, today: ISODate): Patterns {
 
   const most = Math.max(...byWeekday);
   return {
+    days: window.length,
     total,
     daysByLevel,
-    activePercent: Math.round(((PATTERN_DAYS - daysByLevel[0]) / PATTERN_DAYS) * 100),
+    activePercent: Math.round(((window.length - daysByLevel[0]) / window.length) * 100),
     byWeekday,
-    bestWeekday: byWeekday.indexOf(most),
+    bestWeekday: most > 0 ? byWeekday.indexOf(most) : null,
     byTimeOfDay,
     byActivity: ACTIVITIES.map((activity) => ({ activity, count: perActivity.get(activity.id) ?? 0 })).sort(
       (a, b) => b.count - a.count,
