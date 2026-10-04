@@ -68,7 +68,18 @@ export function ProfileScreen() {
       </Card>
 
       <SectionLabel>Account</SectionLabel>
-      <Card tight>
+      <Card tight divided={vm.canConnectGoogle}>
+        {vm.canConnectGoogle && (
+          <ListRow
+            title="Connect Google account"
+            description={vm.connectingGoogle ? 'Connecting…' : 'Back up your check-ins and keep them'}
+            icon="upload"
+            iconColor="blue"
+            trailing="chevron"
+            onPress={vm.onConnectGoogle}
+            testID="profile-connect-google"
+          />
+        )}
         <ListRow
           title="Account settings"
           icon="user"

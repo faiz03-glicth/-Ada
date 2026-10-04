@@ -47,6 +47,9 @@ export function createFakeAuthRepository(): FakeAuthRepository {
     continueAsGuest: mockFn<Auth['continueAsGuest']>(async () =>
       testUser({ id: 'guest-1', provider: 'guest', email: null, displayName: null }),
     ),
+    connectGoogle: mockFn<Auth['connectGoogle']>(async () => testUser({ provider: 'google' })),
+    guestCheckInsOnDevice: mockFn<Auth['guestCheckInsOnDevice']>(async () => 0),
+    claimGuestData: mockFn<Auth['claimGuestData']>(async () => undefined),
     restoreSession: mockFn<Auth['restoreSession']>(async () => null),
     signOut: mockFn<Auth['signOut']>(async () => undefined),
     onAuthStateChange: mockFn<Auth['onAuthStateChange']>(() => () => undefined),

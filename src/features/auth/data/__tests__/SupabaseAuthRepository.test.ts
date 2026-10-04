@@ -61,6 +61,7 @@ function setup() {
   };
   const guestData: jest.Mocked<GuestDataDao> = {
     reassignGuestData: mockFn<GuestDataDao['reassignGuestData']>(async () => undefined),
+    countGuestCheckIns: mockFn<GuestDataDao['countGuestCheckIns']>(async () => 0),
   };
   const profiles = createFakeProfileRepository();
   const appMeta = memoryAppMeta();
@@ -177,6 +178,44 @@ describe('SupabaseAuthRepository', () => {
       const user = await repo.signInWithGoogle();
       expect(guestData.reassignGuestData).toHaveBeenCalledWith('new-guest-id', user.id, 'NOW');
       expect(appMeta.data.has('guest_active')).toBe(false);
+    });
+
+    it('connects an active guest to Google, check-ins and all', async () => {
+      const { repo, api, guestData, appMeta } = setup();
+      await repo.continueAsGuest();
+      const user = await repo.connectGoogle();
+      expect(api.signInWithIdToken).toHaveBeenCalledWith('google', 'google-id-token');
+      expect(user.provider).toBe('google');
+      expect(guestData.reassignGuestData).toHaveBeenCalledWith('new-guest-id', user.id, 'NOW');
+      expect(appMeta.data.get('last_user_id')).toBe(user.id);
+    });
+
+    it('connects only from inside a guest session', async () => {
+      const { repo, google } = setup();
+      await expect(repo.connectGoogle()).rejects.toMatchObject({ code: 'Unknown' });
+      expect(google.signIn).not.toHaveBeenCalled();
+    });
+
+    it("never hands a logged-out guest's check-ins to whoever signs in next", async () => {
+      const { repo, guestData } = setup();
+      await repo.continueAsGuest();
+      await repo.signOut();
+      guestData.countGuestCheckIns.mockResolvedValue(42);
+
+      const user = await repo.signInWithGoogle();
+
+      expect(guestData.reassignGuestData).not.toHaveBeenCalled();
+      await expect(repo.guestCheckInsOnDevice()).resolves.toBe(42);
+      // Only when the person says so.
+      await repo.claimGuestData(user.id);
+      expect(guestData.reassignGuestData).toHaveBeenCalledWith('new-guest-id', user.id, 'NOW');
+    });
+
+    it('has no left-behind guest check-ins while a guest session is in progress', async () => {
+      const { repo, guestData } = setup();
+      guestData.countGuestCheckIns.mockResolvedValue(5);
+      await repo.continueAsGuest();
+      await expect(repo.guestCheckInsOnDevice()).resolves.toBe(0);
     });
   });
 

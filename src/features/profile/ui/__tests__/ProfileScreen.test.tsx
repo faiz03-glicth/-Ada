@@ -46,6 +46,29 @@ describe.each(SCHEMES)('ProfileScreen in %s', (scheme) => {
   });
 });
 
+describe('Connect Google', () => {
+  it('lets a guest connect Google and carry on as the account', async () => {
+    useAuthStore.getState().setUser(testUser({ id: 'g', provider: 'guest', displayName: null, email: null }));
+    const repositories = createFakeRepositories();
+    repositories.profile.getLocal.mockResolvedValue(null);
+    renderWithApp(<ProfileScreen />, { repositories });
+
+    fireEvent.press(await screen.findByRole('button', { name: /^Connect Google account/ }));
+
+    await waitFor(() =>
+      expect(useAuthStore.getState()).toMatchObject({ status: 'signedIn', user: { provider: 'google' } }),
+    );
+    expect(repositories.auth.connectGoogle).toHaveBeenCalledTimes(1);
+  });
+
+  it('is offered only to guests', async () => {
+    useAuthStore.getState().setUser(testUser());
+    renderWithApp(<ProfileScreen />);
+    await screen.findByText('person@example.com');
+    expect(screen.queryByRole('button', { name: /^Connect Google account/ })).toBeNull();
+  });
+});
+
 describe('Appearance', () => {
   it('opens the Appearance settings', async () => {
     useAuthStore.getState().setUser(testUser());

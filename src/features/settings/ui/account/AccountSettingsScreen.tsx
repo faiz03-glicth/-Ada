@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Avatar, Card, ListRow, NavBar, Pill, Screen, SectionLabel, Text } from '@/shared/ui';
+import { Avatar, Card, ListRow, NavBar, Pill, Screen, SectionLabel, SsoButton, Text } from '@/shared/ui';
 
 import { PROVIDER_LABEL, useAccountSettingsViewModel } from './useAccountSettingsViewModel';
 
@@ -30,11 +30,18 @@ export function AccountSettingsScreen() {
       </View>
 
       {vm.isGuest ? (
-        <Card>
+        <Card style={styles.guestCard}>
           <Text variant="sub" tone="secondary">
-            You&apos;re using Streak as a guest, so your check-ins are stored only on this device. Log out and
-            sign in with Apple, Google or email to keep them with an account.
+            You&apos;re using Streak as a guest, so your check-ins are stored only on this phone. Connect a
+            Google account to back them up and see them on your other phones. Nothing you&apos;ve logged is
+            lost.
           </Text>
+          <SsoButton
+            provider="google"
+            label="Connect Google account"
+            onPress={vm.onConnectGoogle}
+            busy={vm.connectingGoogle}
+          />
         </Card>
       ) : (
         <>
@@ -75,4 +82,5 @@ export function AccountSettingsScreen() {
 
 const styles = StyleSheet.create((theme) => ({
   identity: { alignItems: 'center', gap: theme.spacing.sm, paddingVertical: theme.spacing.sm },
+  guestCard: { gap: theme.spacing.md },
 }));

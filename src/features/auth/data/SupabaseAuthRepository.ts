@@ -84,6 +84,22 @@ export class SupabaseAuthRepository implements AuthRepository {
     return guestUser(guestId);
   }
 
+  async connectGoogle(): Promise<AuthUser> {
+    // Only a guest in their own session can give their check-ins to an account.
+    if (!(await this.isGuestActive())) throw new AuthError('Unknown', 'No guest session to connect');
+    return this.signInWithGoogle();
+  }
+
+  async guestCheckInsOnDevice(): Promise<number> {
+    if (await this.isGuestActive()) return 0;
+    return this.deps.guestData.countGuestCheckIns();
+  }
+
+  async claimGuestData(userId: string): Promise<void> {
+    const guestId = (await this.deps.appMeta.get('guest_id')) ?? '';
+    await this.deps.guestData.reassignGuestData(guestId, userId, this.deps.now());
+  }
+
   async restoreSession(): Promise<AuthUser | null> {
     const session = this.deps.api.getSessionUser();
     const overBudget = await Promise.race([
@@ -137,14 +153,24 @@ export class SupabaseAuthRepository implements AuthRepository {
     return this.deps.api.onAuthStateChange(callback);
   }
 
-  /** After any real sign-in: persist the profile, hand over guest data, remember the user for offline restore. */
+  /**
+   * After any real sign-in: persist the profile, remember the user for offline restore, and hand over guest
+   * data only when the sign-in came from inside the guest's own session (Connect Google). Check-ins a
+   * logged-out guest left behind never move silently: the person is asked (guestCheckInsOnDevice).
+   */
   private async completeSignIn(user: AuthUser): Promise<AuthUser> {
     await this.deps.profiles.saveFromAuth(user);
     const guestId = await this.deps.appMeta.get('guest_id');
-    if (guestId) await this.deps.guestData.reassignGuestData(guestId, user.id, this.deps.now());
+    if (guestId && (await this.isGuestActive())) {
+      await this.deps.guestData.reassignGuestData(guestId, user.id, this.deps.now());
+    }
     await this.deps.appMeta.remove('guest_active');
     await this.deps.appMeta.set('last_user_id', user.id);
     return user;
+  }
+
+  private async isGuestActive(): Promise<boolean> {
+    return (await this.deps.appMeta.get('guest_active')) === '1';
   }
 
   /**

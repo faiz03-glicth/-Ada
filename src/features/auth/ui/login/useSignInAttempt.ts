@@ -6,6 +6,7 @@ import { haptics } from '@/shared/lib/haptics';
 import { showSuccess } from '@/shared/ui/toast';
 
 import { AuthError } from '../../domain/AuthError';
+import { useGuestDataOffer } from '../../hooks/useGuestDataOffer';
 import { feedbackFor, signedInMessage, type AuthFeedback } from '../../domain/authFeedback';
 import type { AuthIntent, AuthUser } from '../../domain/types';
 import { useAuthStore } from '../../state/authStore';
@@ -17,11 +18,14 @@ import { useAuthStore } from '../../state/authStore';
 export function useSignInAttempt(intent: AuthIntent) {
   const restartOnboarding = useAuthStore((s) => s.restartOnboarding);
   const { finishOnboarding } = useSessionActions();
+  const offerGuestData = useGuestDataOffer();
   const [feedback, setFeedback] = useState<AuthFeedback>({ banner: null, codeError: null });
 
   /** New people continue to onboarding step 1; returning people go Home (via the route guard). */
   const continueAfterSignIn = async (user: AuthUser) => {
     haptics.success();
+    // Check-ins a logged-out guest left here are offered, never moved silently (not awaited: it's a dialog).
+    void offerGuestData(user);
     // Read now, not at render: a new-account attempt has just cleared it.
     const { hasCompletedOnboarding } = useAuthStore.getState();
     if (!hasCompletedOnboarding && (intent === 'new' || user.provider === 'guest')) {

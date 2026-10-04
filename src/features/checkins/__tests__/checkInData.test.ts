@@ -54,6 +54,15 @@ describe('check-ins on the device (real SQLite, real migrations)', () => {
     expect(await repository.list('user-2')).toHaveLength(1);
   });
 
+  it("counts only the guest's live check-ins (for the offer after a sign-in)", async () => {
+    const { db, repository } = await setup();
+    await repository.add(null, input);
+    const deleted = await repository.add(null, input);
+    await repository.remove(deleted.id);
+    await repository.add('user-1', input);
+    expect(await createGuestDataDao(db).countGuestCheckIns()).toBe(1);
+  });
+
   it("hands a guest's check-ins to the account they sign in with", async () => {
     const { db, repository } = await setup();
     await repository.add(null, input);

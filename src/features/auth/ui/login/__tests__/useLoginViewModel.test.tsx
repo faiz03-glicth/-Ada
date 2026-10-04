@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { toast } from 'sonner-native';
 
 import { AuthError } from '@/features/auth/domain/AuthError';
@@ -178,6 +179,49 @@ describe('useLoginViewModel', () => {
       'Signed in with Apple',
       expect.objectContaining({ description: 'Welcome back, Faiz. Your heatmap is up to date.' }),
     );
+  });
+
+  describe("a logged-out guest's check-ins", () => {
+    const answer = (choice: string) =>
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons?: AlertButton[]) => {
+        buttons?.find((button) => button.text === choice)?.onPress?.();
+      });
+
+    it('are offered after a sign-in, and join the account only on Add', async () => {
+      const alert = answer('Add to account');
+      const repositories = createFakeRepositories();
+      repositories.auth.guestCheckInsOnDevice.mockResolvedValue(3);
+      const { result } = await setup('existing', repositories);
+      await act(async () => result.current.onGoogle());
+      await waitFor(() => expect(repositories.auth.claimGuestData).toHaveBeenCalledWith('user-1'));
+      expect(alert).toHaveBeenCalledWith(
+        'Add guest check-ins?',
+        expect.stringContaining('This phone has 3 check-ins from guest mode.'),
+        expect.any(Array),
+        expect.any(Object),
+      );
+      alert.mockRestore();
+    });
+
+    it('stay in guest mode when kept separate', async () => {
+      const alert = answer('Keep separate');
+      const repositories = createFakeRepositories();
+      repositories.auth.guestCheckInsOnDevice.mockResolvedValue(3);
+      const { result } = await setup('existing', repositories);
+      await act(async () => result.current.onGoogle());
+      await waitFor(() => expect(alert).toHaveBeenCalled());
+      expect(repositories.auth.claimGuestData).not.toHaveBeenCalled();
+      alert.mockRestore();
+    });
+
+    it('are not asked about when there are none', async () => {
+      const alert = jest.spyOn(Alert, 'alert');
+      const { result, repositories } = await setup('existing');
+      await act(async () => result.current.onGoogle());
+      await waitFor(() => expect(repositories.auth.guestCheckInsOnDevice).toHaveBeenCalled());
+      expect(alert).not.toHaveBeenCalled();
+      alert.mockRestore();
+    });
   });
 
   it('opens the legal documents', async () => {

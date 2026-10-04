@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { ACTIVITIES } from '@/features/activities/domain/catalog';
+import { useConnectGoogle } from '@/features/auth/hooks/useConnectGoogle';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { countOn } from '@/features/checkins/domain/checkInIndex';
 import { bestStreak } from '@/features/checkins/domain/stats';
@@ -31,6 +32,7 @@ export function useProfileViewModel() {
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile(user);
   const { signOut } = useSessionActions();
+  const google = useConnectGoogle();
   const { index } = useCheckIns();
   const today = useToday();
   const weekStart = useCalendarPreferencesStore((s) => s.weekStart);
@@ -72,6 +74,10 @@ export function useProfileViewModel() {
     notificationsValue: dailyReminder ? 'On' : 'Off',
     activitiesValue: `${ACTIVITIES.length} activities`,
 
+    /** Guests: keep everything logged so far with a Google account. */
+    canConnectGoogle: isGuest,
+    connectingGoogle: google.connecting,
+    onConnectGoogle: google.connect,
     onAccount: () => openSettings('account'),
     onAppearance: () => openSettings('appearance'),
     onNotifications: () => openSettings('notifications'),

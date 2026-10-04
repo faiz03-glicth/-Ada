@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 
+import { useConnectGoogle } from '@/features/auth/hooks/useConnectGoogle';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { profileTitle } from '@/features/profile/domain/Profile';
 import { useProfile } from '@/features/profile/hooks/useProfile';
@@ -16,14 +17,15 @@ export const PROVIDER_LABEL = {
 } as const;
 
 /**
- * Account: who you are and how you sign in. Only what works is offered as working: the name can be
- * edited; connecting another provider and deleting the account aren't available in the app yet, and
- * say what to do instead.
+ * Account: who you are and how you sign in. Only what works is offered as working: a guest can connect
+ * Google (keeping their check-ins), and a signed-in person can edit their name; adding a second sign-in
+ * method and deleting the account aren't available in the app yet, and say what to do instead.
  */
 export function useAccountSettingsViewModel() {
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile(user);
   const { linkProvider } = useSessionActions();
+  const google = useConnectGoogle();
   const provider = user?.provider ?? 'guest';
   const identity = profile ?? user;
   const name = identity ? profileTitle(identity) : 'Guest';
@@ -38,6 +40,9 @@ export function useAccountSettingsViewModel() {
     email: profile?.email ?? user?.email ?? '—',
     timeZone: profile?.timeZone ?? deviceTimeZone(),
 
+    /** Guests: sign in with Google and keep everything logged so far. */
+    connectingGoogle: google.connecting,
+    onConnectGoogle: google.connect,
     onEditName: () => openEditField('name'),
     onConnect: (which: 'apple' | 'google') => linkProvider(which),
     onDelete: () => {
