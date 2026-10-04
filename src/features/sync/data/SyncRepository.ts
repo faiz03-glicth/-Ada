@@ -1,8 +1,10 @@
 import type { CheckInRow } from '@/core/db/schema';
-import { isNetworkError } from '@/core/errors/AppError';
+import { AppError, isNetworkError } from '@/core/errors/AppError';
 import type { CheckInDao } from '@/features/checkins/data/local/checkInDao';
 import type { CheckInApi, PushedCheckIn } from '@/features/checkins/data/remote/checkInApi';
 import { cleanNote } from '@/features/checkins/domain/CheckIn';
+import type { WorkoutDayDao } from '@/features/training/data/local/workoutDayDao';
+import type { WorkoutDayApi } from '@/features/training/data/remote/workoutDayApi';
 import { secondsBefore } from '@/shared/lib/date/serverTime';
 
 import type { SyncCursor, SyncStateDao } from './local/syncStateDao';
@@ -16,6 +18,8 @@ export const PULL_OVERLAP_SECONDS = 5;
 // A run never sends more batches than this, whatever happens (a guard, not a limit anyone reaches).
 const MAX_BATCHES = 1000;
 const FIRST_KEY = '00000000-0000-0000-0000-000000000000';
+// Before every real day, and still a date Postgres accepts (it has no year 0).
+const FIRST_DATE = '0001-01-01';
 
 export interface SyncProgress {
   step: 'backingUp' | 'updating';
@@ -32,8 +36,10 @@ export interface SyncRunOptions {
 export interface SyncResult {
   /** Check-ins the server now has from this run. */
   pushed: number;
-  /** Rows on this phone that the pull changed (0 means nothing on screen needs to change). */
+  /** Check-ins on this phone that the pull changed (0 means nothing on screen needs to change). */
   changed: number;
+  /** Workout days from Teras that the pull added to or removed from this phone. */
+  workoutDaysChanged: number;
   /** Check-ins the server refused: kept on this phone, and tried again after the app restarts. */
   refused: number;
   /** False when the run stopped early (the app went to the background, offline, or sync was turned off). */
@@ -41,8 +47,9 @@ export interface SyncResult {
 }
 
 /**
- * Keeps the account's check-ins on this phone and on the server in step. Local-first: screens only ever
- * read SQLite; this runs beside them, a batch at a time.
+ * Keeps the account's check-ins on this phone and on the server in step, and brings in the days the
+ * account worked out in Teras. Local-first: screens only ever read SQLite; this runs beside them, a batch
+ * at a time.
  */
 export interface SyncRepository {
   /** One sync for a signed-in account: send what's waiting, then fetch what changed elsewhere. */
@@ -52,6 +59,9 @@ export interface SyncRepository {
 export interface CloudSyncDeps {
   checkIns: Pick<CheckInDao, 'listDirty' | 'countDirty' | 'markClean' | 'applyPulled'>;
   checkInApi: CheckInApi;
+  /** The days the account worked out in Teras: only ever pulled, never sent. */
+  workoutDays: Pick<WorkoutDayDao, 'applyPulled'>;
+  workoutDayApi: WorkoutDayApi;
   state: SyncStateDao;
   /** Gives the app a moment between batches, so taps and animations never wait for sync. */
   yieldToApp: () => Promise<void>;
@@ -59,6 +69,15 @@ export interface CloudSyncDeps {
 
 const isRejected = (error: unknown) =>
   error instanceof Error && 'code' in error && (error as { code: unknown }).code === 'Rejected';
+
+/** Teras's table isn't in this project or can't be read: asking again in this session won't help. */
+const isUnavailable = (error: unknown) => error instanceof AppError && error.code === 'Unavailable';
+
+/** What the log says when workout days fail: our own message (a server code at most), never the days. */
+const workoutDaysFailure = (error: unknown) =>
+  error instanceof AppError
+    ? error.message
+    : `Workout days pull failed (${error instanceof Error ? error.name : 'unknown'})`;
 
 const toPushed = (row: CheckInRow): PushedCheckIn => ({
   id: row.id,
@@ -75,17 +94,32 @@ const toPushed = (row: CheckInRow): PushedCheckIn => ({
 export class CloudSync implements SyncRepository {
   // Check-ins the server refused in this app session: not re-sent (and re-refused) on every run.
   private readonly refused = new Set<string>();
+  // Teras's table couldn't be read: workout days are left out until the app restarts.
+  private workoutDaysUnavailable = false;
 
   constructor(private readonly deps: CloudSyncDeps) {}
 
   async run(userId: string, options: SyncRunOptions = {}): Promise<SyncResult> {
     const proceed = options.shouldContinue ?? (() => true);
     const push = await this.pushCheckIns(userId, options, proceed);
-    if (!push.complete) {
-      return { pushed: push.sent, changed: 0, refused: this.refused.size, complete: false };
-    }
+    const stopped = (changed: number): SyncResult => ({
+      pushed: push.sent,
+      changed,
+      workoutDaysChanged: 0,
+      refused: this.refused.size,
+      complete: false,
+    });
+    if (!push.complete) return stopped(0);
     const pull = await this.pullCheckIns(userId, options, proceed);
-    return { pushed: push.sent, changed: pull.changed, refused: this.refused.size, complete: pull.complete };
+    if (!pull.complete) return stopped(pull.changed);
+    const workouts = await this.pullWorkoutDays(userId, proceed);
+    return {
+      pushed: push.sent,
+      changed: pull.changed,
+      workoutDaysChanged: workouts.changed,
+      refused: this.refused.size,
+      complete: workouts.complete,
+    };
   }
 
   private async pushCheckIns(userId: string, { onProgress }: SyncRunOptions, proceed: () => boolean) {
@@ -148,6 +182,39 @@ export class CloudSync implements SyncRepository {
       onProgress?.({ step: 'updating', done: pulled, total: 0 });
       if (!proceed()) return { changed, complete: false };
       await yieldToApp();
+    }
+  }
+
+  /**
+   * Brings in the days the account worked out in Teras: dates only. When Teras's table can't be read here,
+   * check-ins carry on as normal and workout days are left out until the app restarts; any other failure is
+   * tried again next run. Offline stops the run, as in every other step.
+   */
+  private async pullWorkoutDays(userId: string, proceed: () => boolean) {
+    if (this.workoutDaysUnavailable) return { changed: 0, complete: true };
+    const { workoutDays, workoutDayApi, state, yieldToApp } = this.deps;
+    let changed = 0;
+    try {
+      const saved = await state.getCursor(userId, 'workout_days');
+      let after: SyncCursor | null = saved
+        ? { at: secondsBefore(saved.at, PULL_OVERLAP_SECONDS) ?? saved.at, key: FIRST_DATE }
+        : null;
+      for (;;) {
+        const page = await workoutDayApi.pull(userId, after, PULL_PAGE);
+        changed += await workoutDays.applyPulled(userId, page.days);
+        if (page.next) {
+          await state.setCursor(userId, 'workout_days', page.next);
+          after = page.next;
+        }
+        if (page.days.length < PULL_PAGE) return { changed, complete: true };
+        if (!proceed()) return { changed, complete: false };
+        await yieldToApp();
+      }
+    } catch (error) {
+      if (isNetworkError(error)) throw error;
+      if (isUnavailable(error)) this.workoutDaysUnavailable = true;
+      console.error(`[sync] ${workoutDaysFailure(error)}`); // TODO(Sentry)
+      return { changed, complete: true };
     }
   }
 }

@@ -16,7 +16,7 @@ import type { ISODate } from '@/shared/lib/date/isoDate';
 import { checkInCount, shortDate } from '@/shared/lib/format/dates';
 
 import type { HeatGrid, HeatGridCell } from './grid';
-import { intensityLevel } from './intensity';
+import { intensityLevel, type IntensityLevel } from './intensity';
 
 /**
  * PURE builders for the real heatmaps (Home, Calendar year and month, Profile, Appearance preview). Every
@@ -30,6 +30,10 @@ export interface DayCellOptions {
   weekStart: WeekStart;
   outlineToday: boolean;
   selected?: ISODate | null;
+  /** How dark a day is, for a wave that isn't of check-ins (Teras's workout days). */
+  levelOn?: (day: ISODate) => IntensityLevel;
+  /** How a day is read out, for a wave that isn't of check-ins. */
+  labelOn?: (day: ISODate) => string;
 }
 
 function blank(index: number): HeatGridCell {
@@ -48,10 +52,10 @@ export function dayCell(day: ISODate, options: DayCellOptions): HeatGridCell {
         : 'default';
   return {
     key: day,
-    level: intensityLevel(count),
+    level: options.levelOn ? options.levelOn(day) : intensityLevel(count),
     state,
     count,
-    label: `${shortDate(day)}: ${checkInCount(count)}`,
+    label: options.labelOn ? options.labelOn(day) : `${shortDate(day)}: ${checkInCount(count)}`,
   };
 }
 

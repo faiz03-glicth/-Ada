@@ -2,6 +2,8 @@ import { AppError } from '@/core/errors/AppError';
 import { LocalCheckInRepository } from '@/features/checkins/data/CheckInRepository';
 import { createCheckInDao } from '@/features/checkins/data/local/checkInDao';
 import type { CheckInApi, PulledPage, PushedCheckIn } from '@/features/checkins/data/remote/checkInApi';
+import { createWorkoutDayDao } from '@/features/training/data/local/workoutDayDao';
+import type { WorkoutDayApi } from '@/features/training/data/remote/workoutDayApi';
 import type { ISODate } from '@/shared/lib/date/isoDate';
 import { createTestDatabase } from '@test/db/createTestDatabase';
 
@@ -89,6 +91,53 @@ function createFakeServer() {
   return { api, rows, state, fromOtherPhone };
 }
 
+interface TerasRow {
+  user_id: string;
+  date: string;
+  sets: number;
+  updated_at: string;
+}
+
+/**
+ * A stand-in for Teras's `workout_days`: one row per account and day, which Teras keeps updating (a day whose
+ * sets are all removed keeps its row, with 0 sets), each save stamped with a later updated_at. Pulls answer
+ * the way Streak asks: the date, and whether the day had a workout.
+ */
+function createFakeTeras() {
+  const rows = new Map<string, TerasRow>();
+  let clock = 0;
+  const stamp = () => new Date(Date.UTC(2026, 9, 4, 12, 0, 0) + (clock += 1) * 1000).toISOString();
+  const state = { offline: false, failure: null as Error | null, pulls: 0 };
+
+  const api: WorkoutDayApi = {
+    async pull(userId, after, limit) {
+      state.pulls += 1;
+      if (state.offline) throw new AppError('Network', 'Network request failed');
+      if (state.failure) throw state.failure;
+      const page = [...rows.values()]
+        .filter((row) => row.user_id === userId)
+        .filter(
+          (row) =>
+            !after || row.updated_at > after.at || (row.updated_at === after.at && row.date > after.key),
+        )
+        .sort((a, b) => a.updated_at.localeCompare(b.updated_at) || a.date.localeCompare(b.date))
+        .slice(0, limit);
+      const last = page.at(-1);
+      return {
+        days: page.map((row) => ({ date: row.date, workedOut: row.sets > 0 })),
+        next: last ? { at: last.updated_at, key: last.date } : null,
+      };
+    },
+  };
+
+  /** Teras saves an account's day: its completed sets (0 once they've all been removed). */
+  const save = (date: string, sets: number, userId = USER) => {
+    rows.set(`${userId}/${date}`, { user_id: userId, date, sets, updated_at: stamp() });
+  };
+
+  return { api, state, save };
+}
+
 async function setup() {
   const db = await createTestDatabase();
   const dao = createCheckInDao(db);
@@ -100,16 +149,20 @@ async function setup() {
     now: () => new Date(Date.UTC(2026, 9, 1, 12, 0, 0) + (clock += 1) * 1000).toISOString(),
   });
   const server = createFakeServer();
+  const teras = createFakeTeras();
   const state = createSyncStateDao(db);
+  const workoutDays = createWorkoutDayDao(db);
   const sync = new CloudSync({
     checkIns: dao,
     checkInApi: server.api,
+    workoutDays,
+    workoutDayApi: teras.api,
     state,
     yieldToApp: async () => undefined,
   });
   const add = (owner: string | null, note = '') =>
     repository.add(owner, { date: day('2026-10-01'), minute: 600, activityId: 'walk', note });
-  return { db, dao, repository, server, state, sync, add };
+  return { db, dao, repository, server, teras, workoutDays, state, sync, add };
 }
 
 describe('CloudSync: push', () => {
@@ -121,7 +174,7 @@ describe('CloudSync: push', () => {
     const result = await sync.run(USER, { onProgress: (p) => progress.push(p) });
 
     expect(server.state.pushes).toEqual([PUSH_BATCH, PUSH_BATCH, 50]);
-    expect(result).toEqual({ pushed: 450, changed: 0, refused: 0, complete: true });
+    expect(result).toEqual({ pushed: 450, changed: 0, workoutDaysChanged: 0, refused: 0, complete: true });
     expect(await dao.countDirty(USER, [])).toBe(0);
     expect(progress.filter((p) => p.step === 'backingUp').map((p) => p.done)).toEqual([0, 200, 400, 450]);
     expect(progress.at(-1)).toEqual({ step: 'updating', done: 0, total: 0 });
@@ -280,5 +333,98 @@ describe('CloudSync: pull', () => {
     server.fromOtherPhone(guests.id, '2099-01-01T00:00:00.000Z', { note: 'account' });
     await sync.run(USER);
     expect((await repository.list(null)).map((c) => c.note)).toEqual(['guest']);
+  });
+});
+
+describe('CloudSync: workout days from Teras', () => {
+  const dateAt = (i: number) => new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10);
+
+  it('brings in the days the account worked out, and nothing for anyone else', async () => {
+    const { sync, teras, workoutDays } = await setup();
+    teras.save('2026-10-01', 12);
+    teras.save('2026-10-02', 0);
+    teras.save('2026-10-03', 5, 'user-2');
+
+    const result = await sync.run(USER);
+
+    expect(result).toEqual({ pushed: 0, changed: 0, workoutDaysChanged: 1, refused: 0, complete: true });
+    expect(await workoutDays.list(USER)).toEqual(['2026-10-01']);
+    expect(await workoutDays.list('user-2')).toEqual([]);
+  });
+
+  it('drops a day once its sets have all been removed in Teras', async () => {
+    const { sync, teras, workoutDays } = await setup();
+    teras.save('2026-10-01', 12);
+    await sync.run(USER);
+    teras.save('2026-10-01', 0);
+
+    expect((await sync.run(USER)).workoutDaysChanged).toBe(1);
+    expect(await workoutDays.list(USER)).toEqual([]);
+  });
+
+  it('reads every page and keeps its own bookmark, then looks a few seconds back', async () => {
+    const { sync, teras, workoutDays, state } = await setup();
+    for (let i = 0; i < PULL_PAGE + 5; i += 1) teras.save(dateAt(i), 3);
+
+    expect((await sync.run(USER)).workoutDaysChanged).toBe(PULL_PAGE + 5);
+    expect(await workoutDays.list(USER)).toHaveLength(PULL_PAGE + 5);
+    expect(await state.getCursor(USER, 'workout_days')).toEqual({
+      at: expect.any(String),
+      key: dateAt(PULL_PAGE + 4),
+    });
+    expect(await state.getCursor(USER, 'check_ins')).toBeNull();
+
+    const pulls = teras.state.pulls;
+    expect((await sync.run(USER)).workoutDaysChanged).toBe(0);
+    expect(teras.state.pulls).toBe(pulls + 1);
+  });
+
+  it('stops between pages when asked, and carries on next run', async () => {
+    const { sync, teras, workoutDays } = await setup();
+    for (let i = 0; i < PULL_PAGE + 1; i += 1) teras.save(dateAt(i), 3);
+
+    const result = await sync.run(USER, { shouldContinue: () => false });
+    expect(result).toMatchObject({ workoutDaysChanged: PULL_PAGE, complete: false });
+
+    await sync.run(USER);
+    expect(await workoutDays.list(USER)).toHaveLength(PULL_PAGE + 1);
+  });
+
+  it("carries on with check-ins when Teras's table isn't there, and stops asking until the app restarts", async () => {
+    const { sync, teras, add, server } = await setup();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    await add(USER);
+    teras.state.failure = new AppError('Unavailable', "Workout days can't be read (PGRST205)");
+
+    const result = await sync.run(USER);
+
+    expect(result).toEqual({ pushed: 1, changed: 0, workoutDaysChanged: 0, refused: 0, complete: true });
+    expect(server.rows.size).toBe(1);
+    expect(error).toHaveBeenCalledWith("[sync] Workout days can't be read (PGRST205)");
+    await sync.run(USER);
+    expect(teras.state.pulls).toBe(1);
+    error.mockRestore();
+  });
+
+  it('tries again next run after any other failure', async () => {
+    const { sync, teras, workoutDays } = await setup();
+    const error = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    teras.save('2026-10-01', 4);
+    teras.state.failure = new AppError('Unknown', 'Workout days request failed (no code)');
+    expect((await sync.run(USER)).complete).toBe(true);
+    expect(await workoutDays.list(USER)).toEqual([]);
+
+    teras.state.failure = null;
+    await sync.run(USER);
+    expect(await workoutDays.list(USER)).toEqual(['2026-10-01']);
+    error.mockRestore();
+  });
+
+  it('stops offline like the rest of sync, after the check-ins are sent', async () => {
+    const { sync, teras, add, server } = await setup();
+    await add(USER);
+    teras.state.offline = true;
+    await expect(sync.run(USER)).rejects.toMatchObject({ code: 'Network' });
+    expect(server.rows.size).toBe(1);
   });
 });

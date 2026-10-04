@@ -23,3 +23,9 @@ for migration in "$migrations"/0002_*.sql "$migrations"/0003_*.sql; do
   [ -e "$migration" ] && run "$migration"
 done
 run "$here/20_profile_checks.sql" 2>&1 | grep -E "PASS|ERROR"
+# Teras's workout_days (from the Teras repo beside this one, read only) and what Streak reads from it.
+teras="$here/../../../Teras/supabase/migrations/0001_workout_days.sql"
+if [ -e "$teras" ]; then
+  run "$teras"
+  run "$here/40_workout_days_checks.sql" 2>&1 | grep -E "PASS|ERROR"
+fi

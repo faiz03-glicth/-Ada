@@ -1,10 +1,11 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/features/auth/state/authStore';
+import { useSyncPreferencesStore } from '@/features/sync/state/syncPreferencesStore';
 import { openCheckIn, openDay, openHeatmap } from '@/shared/actions';
 import { monthLong } from '@/shared/lib/date/calendar';
 import { testUser } from '@test/fakes/fakeRepositories';
-import { checkInDaysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
+import { checkInDaysAgo, daysAgo, repositoriesWith, today } from '@test/fixtures/checkIns';
 import { renderWithApp } from '@test/providers';
 import { SCHEMES } from '@test/render';
 
@@ -15,6 +16,7 @@ jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
 beforeEach(() => {
   jest.clearAllMocks();
   useAuthStore.getState().setUser(testUser());
+  useSyncPreferencesStore.setState({ enabled: true });
 });
 
 describe.each(SCHEMES)('Home in %s', (scheme) => {
@@ -68,6 +70,41 @@ describe.each(SCHEMES)('Home in %s', (scheme) => {
     expect(screen.getByText('Check-ins per week')).toBeTruthy();
     fireEvent.press(screen.getByRole('radio', { name: 'D' }));
     expect(screen.getByText('Check-ins per day')).toBeTruthy();
+  });
+
+  it('shows the days worked out in Teras over the same months', async () => {
+    const repositories = repositoriesWith([checkInDaysAgo(0)]);
+    repositories.training.listWorkoutDays.mockResolvedValue([daysAgo(3), daysAgo(1)]);
+    renderWithApp(<HomeScreen />, { scheme, repositories });
+
+    expect(await screen.findByRole('header', { name: 'Training' })).toBeTruthy();
+    expect(screen.getByText(/^From Teras · .+ · 2 workout days$/)).toBeTruthy();
+    expect(repositories.training.listWorkoutDays).toHaveBeenCalledWith('user-1');
+  });
+
+  it('leaves the training wave out for an account that has never worked out in Teras', async () => {
+    renderWithApp(<HomeScreen />, { scheme, repositories: repositoriesWith([checkInDaysAgo(0)]) });
+    await screen.findByText('Today · 1 check-in');
+    expect(screen.queryByRole('header', { name: 'Training' })).toBeNull();
+  });
+
+  it('leaves it out while Sync is off, and for a guest, without reading any', async () => {
+    const repositories = repositoriesWith([checkInDaysAgo(0)]);
+    repositories.training.listWorkoutDays.mockResolvedValue([daysAgo(1)]);
+    useSyncPreferencesStore.setState({ enabled: false });
+    const view = renderWithApp(<HomeScreen />, { scheme, repositories });
+    await screen.findByText('Today · 1 check-in');
+    expect(screen.queryByRole('header', { name: 'Training' })).toBeNull();
+    view.unmount();
+
+    useSyncPreferencesStore.setState({ enabled: true });
+    useAuthStore
+      .getState()
+      .setUser(testUser({ id: 'guest-1', provider: 'guest', email: null, displayName: null }));
+    renderWithApp(<HomeScreen />, { scheme, repositories });
+    await screen.findByText('Your heatmap starts today');
+    expect(screen.queryByRole('header', { name: 'Training' })).toBeNull();
+    expect(repositories.training.listWorkoutDays).not.toHaveBeenCalled();
   });
 
   it('keeps the layout when empty, with one clear next step', async () => {

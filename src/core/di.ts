@@ -14,6 +14,12 @@ import type { ProfileRepository } from '@/features/profile/data/ProfileRepositor
 import { createProfileApi } from '@/features/profile/data/remote/profileApi';
 import { createSyncStateDao } from '@/features/sync/data/local/syncStateDao';
 import { CloudSync, type SyncRepository } from '@/features/sync/data/SyncRepository';
+import { createWorkoutDayDao } from '@/features/training/data/local/workoutDayDao';
+import { createWorkoutDayApi } from '@/features/training/data/remote/workoutDayApi';
+import {
+  LocalTrainingRepository,
+  type TrainingRepository,
+} from '@/features/training/data/TrainingRepository';
 import { deviceTimeZone, nowIso } from '@/shared/lib/date/deviceTimeZone';
 
 import { requireEnv } from './config/env';
@@ -29,6 +35,7 @@ export interface Repositories {
   auth: AuthRepository;
   profile: ProfileRepository;
   checkIns: CheckInRepository;
+  training: TrainingRepository;
   sync: SyncRepository;
 }
 
@@ -76,12 +83,17 @@ export function createRepositories(): Repositories {
     now: nowIso,
   });
 
+  const workoutDayDao = createWorkoutDayDao(db);
+  const training = new LocalTrainingRepository(workoutDayDao);
+
   const sync = new CloudSync({
     checkIns: checkInDao,
     checkInApi: createCheckInApi(supabase),
+    workoutDays: workoutDayDao,
+    workoutDayApi: createWorkoutDayApi(supabase),
     state: createSyncStateDao(db),
     yieldToApp,
   });
 
-  return { auth, profile, checkIns, sync };
+  return { auth, profile, checkIns, training, sync };
 }

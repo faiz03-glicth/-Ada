@@ -4,6 +4,7 @@ import type { AuthUser } from '@/features/auth/domain/types';
 import type { ProfileRepository } from '@/features/profile/data/ProfileRepository';
 import type { Profile } from '@/features/profile/domain/Profile';
 import type { SyncRepository } from '@/features/sync/data/SyncRepository';
+import type { TrainingRepository } from '@/features/training/data/TrainingRepository';
 
 import { createFakeCheckInRepository, type FakeCheckInRepository } from './fakeCheckIns';
 import { mockFn } from './mockFn';
@@ -76,7 +77,22 @@ export type FakeSyncRepository = jest.Mocked<SyncRepository>;
 /** A sync that has nothing to send or fetch. */
 export function createFakeSyncRepository(): FakeSyncRepository {
   return {
-    run: mockFn<SyncRepository['run']>(async () => ({ pushed: 0, changed: 0, refused: 0, complete: true })),
+    run: mockFn<SyncRepository['run']>(async () => ({
+      pushed: 0,
+      changed: 0,
+      workoutDaysChanged: 0,
+      refused: 0,
+      complete: true,
+    })),
+  };
+}
+
+export type FakeTrainingRepository = jest.Mocked<TrainingRepository>;
+
+/** An account that has never worked out in Teras. */
+export function createFakeTrainingRepository(): FakeTrainingRepository {
+  return {
+    listWorkoutDays: mockFn<TrainingRepository['listWorkoutDays']>(async () => []),
   };
 }
 
@@ -86,12 +102,14 @@ export function createFakeRepositories(
   auth: FakeAuthRepository;
   profile: FakeProfileRepository;
   checkIns: FakeCheckInRepository;
+  training: FakeTrainingRepository;
   sync: FakeSyncRepository;
 } {
   return {
     auth: createFakeAuthRepository(),
     profile: createFakeProfileRepository(),
     checkIns,
+    training: createFakeTrainingRepository(),
     sync: createFakeSyncRepository(),
   };
 }

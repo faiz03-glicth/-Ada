@@ -10,6 +10,8 @@ import { useCheckInFeedbackStore } from '@/features/checkins/state/checkInFeedba
 import { buildMonthGrid, monthAccessibilityLabel } from '@/features/heatmap/domain/calendarGrid';
 import { profileTitle } from '@/features/profile/domain/Profile';
 import { useProfile } from '@/features/profile/hooks/useProfile';
+import { workoutDayCells, workoutDayCount, workoutDaysBetween } from '@/features/training/domain/workoutDays';
+import { useWorkoutDays } from '@/features/training/hooks/useWorkoutDays';
 import { goTab, openCheckIn, openDay, openHeatmap } from '@/shared/actions';
 import {
   addDays,
@@ -51,6 +53,7 @@ export function useHomeViewModel() {
   const pulseDay = useCheckInFeedbackStore((s) => s.pulseDay);
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile(user);
+  const workoutDays = useWorkoutDays();
 
   // How many months back from the current one the heatmap is showing (0 = ending this month).
   const [monthsBack, setMonthsBack] = useState(0);
@@ -74,10 +77,26 @@ export function useHomeViewModel() {
 
   const first = months[0] ?? monthOf(today);
   const last = months[months.length - 1] ?? monthOf(today);
+  const periodRange = `${monthShort(first.month)} – ${monthShort(last.month)}`;
   const period = useMemo(
     () => summarize(index, firstOfMonth(first), lastOfMonth(last), today),
     [index, first, last, today],
   );
+  // Teras's wave over the same months: the days the account worked out. Only for an account that trains.
+  const training = useMemo(() => {
+    if (!workoutDays.size) return null;
+    const options = { ...workoutDayCells(workoutDays), today, weekStart, outlineToday };
+    const total = workoutDaysBetween(workoutDays, firstOfMonth(first), lastOfMonth(last));
+    return {
+      months: months.map<HeatmapMonth>((month) => ({
+        key: `${month.year}-${month.month}`,
+        label: monthShort(month.month),
+        grid: buildMonthGrid(month, options),
+        value: month,
+      })),
+      summary: `From Teras · ${periodRange} · ${workoutDayCount(total)}`,
+    };
+  }, [workoutDays, months, today, weekStart, outlineToday, first, last, periodRange]);
   const stats = useMemo(
     () => ({
       streak: currentStreak(index, today),
@@ -113,7 +132,7 @@ export function useHomeViewModel() {
     monthsBack,
     dayLabels: weekdayLetters(weekStart),
     periodYear: last.year,
-    periodRange: `${monthShort(first.month)} – ${monthShort(last.month)}`,
+    periodRange,
     periodTotal: period.total,
     canGoNewer: monthsBack > 0,
     showLegend,
@@ -124,6 +143,9 @@ export function useHomeViewModel() {
     activeDays: period.activeDays,
     periodDays: period.days,
     thisWeek: stats.thisWeek,
+
+    /** The days worked out in Teras, over the same months; null without any (or while Sync is off). */
+    training,
 
     trendRange,
     trendOptions: TREND_OPTIONS,

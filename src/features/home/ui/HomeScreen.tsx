@@ -73,6 +73,8 @@ export function HomeScreen() {
         />
       </View>
 
+      <TrainingCard vm={vm} />
+
       <TrendCard vm={vm} />
 
       <View style={styles.sectionHeader}>
@@ -171,6 +173,26 @@ function HeatmapCard({ vm }: { vm: HomeViewModel }) {
           {vm.showLegend && <Legend />}
         </View>
       )}
+    </Card>
+  );
+}
+
+/** The days worked out in Teras, over the heatmap's months. Only there for an account that trains. */
+function TrainingCard({ vm }: { vm: HomeViewModel }) {
+  if (!vm.training) return null;
+  return (
+    <Card style={styles.heatmapCard}>
+      <View>
+        <Text variant="headline" accessibilityRole="header">
+          Training
+        </Text>
+        <Text variant="footnote" tone="secondary">
+          {vm.training.summary}
+        </Text>
+      </View>
+      <ScreenTransition index={-vm.monthsBack}>
+        <HeatmapMonths months={vm.training.months} dayLabels={vm.dayLabels} />
+      </ScreenTransition>
     </Card>
   );
 }

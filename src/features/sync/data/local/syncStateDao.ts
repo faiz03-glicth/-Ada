@@ -4,7 +4,7 @@ import { syncState } from '@/core/db/schema';
 import type { AppDatabase } from '@/core/db/types';
 
 /** What is pulled from the server, each with its own bookmark per account. */
-export type SyncStream = 'check_ins';
+export type SyncStream = 'check_ins' | 'workout_days';
 
 /** The last row pulled: its server time (exactly as the server wrote it) and its key. */
 export interface SyncCursor {

@@ -5,6 +5,7 @@ import { useRepositories } from '@/core/DiProvider';
 import { isNetworkError } from '@/core/errors/AppError';
 import { useAuthStore } from '@/features/auth/state/authStore';
 import { checkInsQueryKey } from '@/features/checkins/hooks/useCheckIns';
+import { workoutDaysQueryKey } from '@/features/training/hooks/useWorkoutDays';
 import { checkInCount } from '@/shared/lib/format/dates';
 import { showInfo } from '@/shared/ui/toast';
 
@@ -19,10 +20,11 @@ export const SYNC_AFTER_CHANGE_MS = 3000;
 const ANNOUNCE_UPLOADS_OF = 50;
 
 /**
- * Keeps a signed-in account's check-ins in sync while the Sync switch is on: right after sign-in, at
- * launch, when the phone comes back online, when the app returns to the foreground, and a few seconds
- * after a check-in is saved, deleted or restored. One run at a time; a run stops between batches when the
- * app goes to the background or offline, and the next one carries on. Guests never sync. Mounted once.
+ * Keeps a signed-in account's check-ins in sync while the Sync switch is on, and brings in the days they
+ * worked out in Teras: right after sign-in, at launch, when the phone comes back online, when the app
+ * returns to the foreground, and a few seconds after a check-in is saved, deleted or restored. One run at a
+ * time; a run stops between batches when the app goes to the background or offline, and the next one
+ * carries on. Guests never sync. Mounted once.
  */
 export function useBackgroundSync(): void {
   const { sync } = useRepositories();
@@ -61,6 +63,9 @@ export function useBackgroundSync(): void {
           const result = await sync.run(userId, { onProgress, shouldContinue });
           if (!alive) return;
           if (result.changed) await queryClient.invalidateQueries({ queryKey: checkInsQueryKey(userId) });
+          if (result.workoutDaysChanged) {
+            await queryClient.invalidateQueries({ queryKey: workoutDaysQueryKey(userId) });
+          }
           if (!result.complete) {
             // Stopped between batches: offline waits for a connection; the background resumes on return.
             if (!onlineManager.isOnline()) setStatus({ kind: 'waiting' });
@@ -76,6 +81,9 @@ export function useBackgroundSync(): void {
         } while (again && shouldContinue());
       } catch (error) {
         if (!alive) return;
+        // A run that failed part-way may have stored a page already, so screens read the phone again.
+        void queryClient.invalidateQueries({ queryKey: checkInsQueryKey(userId) });
+        void queryClient.invalidateQueries({ queryKey: workoutDaysQueryKey(userId) });
         if (isNetworkError(error)) {
           setStatus({ kind: 'waiting' });
           return;
