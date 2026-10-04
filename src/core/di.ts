@@ -15,7 +15,7 @@ import { deviceTimeZone, nowIso } from '@/shared/lib/date/deviceTimeZone';
 
 import { requireEnv } from './config/env';
 import { createAppMetaDao } from './db/appMetaDao';
-import { db } from './db/client';
+import { getDb } from './db/client';
 import { forgetStoredSession, getSupabase } from './supabase/client';
 
 /**
@@ -32,6 +32,8 @@ export interface Repositories {
 export function createRepositories(): Repositories {
   const env = requireEnv();
   const supabase = getSupabase();
+  // Opened by the migrations boot task already; this runs only after it succeeded.
+  const db = getDb();
 
   googleSignInService.configure({
     webClientId: env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
