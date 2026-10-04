@@ -163,6 +163,8 @@ do $$ begin
   exception when check_violation then null; end;
   begin perform pg_temp.push_one('2026-10-01', 0, 'walk', E'sep arator'); raise exception 'U+2028 accepted';
   exception when check_violation then null; end;
+  begin perform pg_temp.push_one('2026-10-01', 0, 'walk', E'para graph'); raise exception 'U+2029 accepted';
+  exception when check_violation then null; end;
   begin perform pg_temp.push_one((current_date + 2)::text, 0, 'walk', ''); raise exception 'future day accepted';
   exception when insufficient_privilege then null; end;
   perform pg_temp.push_one('2026-10-01', 1439, 'custom_activity-2', repeat('é', 280));
@@ -243,6 +245,68 @@ do $$ begin
   raise notice 'PASS anon gets nothing';
 end $$;
 reset role;
+
+-- Purge: a deleted check-in goes 7 days after the server last wrote it; live ones and fresh deletions stay.
+do $$ declare purged integer; begin
+  insert into public.check_ins (id, user_id, date, minute, activity_id, created_at, updated_at, deleted_at)
+  values ('c0000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-000000000003', '2026-10-01', 1, 'walk', now(), now(), now()),
+         ('c0000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-000000000003', '2026-10-01', 1, 'walk', now(), now(), now()),
+         ('c0000000-0000-0000-0000-0000000000d3', '00000000-0000-0000-0000-000000000003', '2026-10-01', 1, 'walk', now(), now(), null);
+  -- Backdating needs the write trigger out of the way (it stamps synced_at itself).
+  alter table public.check_ins disable trigger check_ins_before_write;
+  update public.check_ins set synced_at = now() - interval '8 days'
+    where id in ('c0000000-0000-0000-0000-0000000000d1', 'c0000000-0000-0000-0000-0000000000d3');
+  alter table public.check_ins enable trigger check_ins_before_write;
+
+  purged := public.purge_deleted_check_ins();
+  assert purged = 1, format('only the old deleted row is purged (purged %s)', purged);
+  assert not exists (select 1 from public.check_ins where id = 'c0000000-0000-0000-0000-0000000000d1'), 'old deletion gone';
+  assert exists (select 1 from public.check_ins where id = 'c0000000-0000-0000-0000-0000000000d2'), 'fresh deletion stays';
+  assert exists (select 1 from public.check_ins where id = 'c0000000-0000-0000-0000-0000000000d3'), 'old live row stays';
+  raise notice 'PASS deleted check-ins are purged after 7 days, nothing else';
+end $$;
+
+-- Nobody signed in can run the purge.
+do $$ begin
+  set local role authenticated;
+  begin perform public.purge_deleted_check_ins(); raise exception 'authenticated could purge';
+  exception when insufficient_privilege then null; end;
+  set local role anon;
+  begin perform public.purge_deleted_check_ins(); raise exception 'anon could purge';
+  exception when insufficient_privilege then null; end;
+  reset role;
+  raise notice 'PASS the purge is not an endpoint';
+end $$;
+
+-- The limit: 50,000 an account. New check-ins past it are refused; editing or re-sending one is not.
+delete from public.check_ins where user_id = '00000000-0000-0000-0000-000000000003';
+insert into public.check_ins (id, user_id, date, minute, activity_id, created_at, updated_at)
+  select gen_random_uuid(), '00000000-0000-0000-0000-000000000003', '2026-10-01', 0, 'walk', now(), now()
+  from generate_series(1, 50000);
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+do $$ declare existing uuid; begin
+  assert (select count(*) from public.check_ins) = 50000, 'exactly at the limit is allowed';
+  begin perform pg_temp.push_one('2026-10-01', 0, 'walk', 'one too many');
+    raise exception 'a check-in past the limit was accepted';
+  exception when program_limit_exceeded then null; end;
+  begin
+    insert into public.check_ins (id, user_id, date, minute, activity_id, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000003', '2026-10-01', 0, 'walk', now(), now());
+    raise exception 'a direct insert past the limit was accepted';
+  exception when program_limit_exceeded then null; end;
+  assert (select count(*) from public.check_ins) = 50000, 'refused inserts store nothing';
+
+  select id into existing from public.check_ins limit 1;
+  perform public.push_check_ins(jsonb_build_array(jsonb_build_object('id', existing,
+    'date', '2026-10-01', 'minute', 0, 'activity_id', 'walk', 'note', 'edited at the limit',
+    'created_at', now(), 'updated_at', now() + interval '1 minute', 'deleted_at', null)));
+  assert (select note from public.check_ins where id = existing) = 'edited at the limit', 'edits still work';
+  raise notice 'PASS an account holds at most 50000 check-ins, and edits still work at the limit';
+end $$;
+reset role;
+delete from public.check_ins where user_id = '00000000-0000-0000-0000-000000000003';
 
 -- Deleting the auth user removes their check-ins.
 do $$ begin
