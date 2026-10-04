@@ -139,11 +139,18 @@ export class SupabaseAuthRepository implements AuthRepository {
 
   async signOut(): Promise<void> {
     if ((await this.deps.appMeta.get('guest_active')) === '1') {
+      // A Connect Google that stopped part-way can leave an account session behind: it ends too, or Log out
+      // would leave the account signed in for the next launch.
+      if (await this.deps.api.getSessionUser().catch(() => null)) await this.endAccountSession();
       // Guest data (and guest_id) stay on the device so the guest can pick up where they left off.
       await this.deps.appMeta.remove('guest_active');
       return;
     }
-    // This device's session first (it ends even offline): a sign-out that fails leaves Google signed in too.
+    await this.endAccountSession();
+  }
+
+  /** This device's session first (it ends even offline): a sign-out that fails leaves Google signed in too. */
+  private async endAccountSession(): Promise<void> {
     await this.deps.api.signOut();
     await this.deps.appMeta.remove('last_user_id');
     await this.deps.google.signOut();

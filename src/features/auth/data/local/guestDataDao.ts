@@ -18,7 +18,11 @@ export function createGuestDataDao(db: AppDatabase): GuestDataDao {
   return {
     async reassignGuestData(guestId, userId, now) {
       db.transaction((tx) => {
-        tx.update(checkIns).set({ userId, dirty: true, updatedAt: now }).where(isNull(checkIns.userId)).run();
+        // Live check-ins only: one the guest deleted stays deleted on this phone and never reaches the account.
+        tx.update(checkIns)
+          .set({ userId, dirty: true, updatedAt: now })
+          .where(and(isNull(checkIns.userId), isNull(checkIns.deletedAt)))
+          .run();
         tx.update(profiles)
           .set({ userId, deletedAt: now, updatedAt: now })
           .where(and(eq(profiles.id, guestId), isNull(profiles.userId)))

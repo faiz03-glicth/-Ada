@@ -211,6 +211,30 @@ describe('SupabaseAuthRepository', () => {
       expect(guestData.reassignGuestData).toHaveBeenCalledWith('new-guest-id', user.id, 'NOW');
     });
 
+    it('ends an account session a stopped Connect Google left behind when the guest logs out', async () => {
+      const { repo, api, google, appMeta } = setup();
+      await repo.continueAsGuest();
+      api.getSessionUser.mockResolvedValueOnce(testUser());
+
+      await repo.signOut();
+
+      expect(api.signOut).toHaveBeenCalled();
+      expect(google.signOut).toHaveBeenCalled();
+      expect(appMeta.data.has('guest_active')).toBe(false);
+      expect(appMeta.data.get('guest_id')).toBe('new-guest-id');
+    });
+
+    it('still logs a guest out when the session check fails', async () => {
+      const { repo, api, appMeta } = setup();
+      await repo.continueAsGuest();
+      api.getSessionUser.mockRejectedValueOnce(new AuthError('Unknown'));
+
+      await repo.signOut();
+
+      expect(appMeta.data.has('guest_active')).toBe(false);
+      expect(api.signOut).not.toHaveBeenCalled();
+    });
+
     it('has no left-behind guest check-ins while a guest session is in progress', async () => {
       const { repo, guestData } = setup();
       guestData.countGuestCheckIns.mockResolvedValue(5);
