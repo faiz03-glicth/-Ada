@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useRepositories } from '@/core/DiProvider';
-import { isNetworkError } from '@/core/errors/AppError';
 import type { AuthRepository } from '@/features/auth/data/AuthRepository';
 import { useAuthStore } from '@/features/auth/state/authStore';
 
@@ -36,7 +35,6 @@ const COPY = {
     sub: 'Your check-ins stay on this device for when you sign back in.',
   },
   signedOutGuest: { title: 'Signed out', sub: 'Your check-ins stay on this device.' },
-  offline: { title: "You're offline", sub: 'Check your connection and try again.' },
   failed: { title: "Couldn't log out", sub: 'Please try again.' },
 };
 
@@ -60,9 +58,10 @@ export function createSessionActions({ auth, store, clearCache, confirm }: Sessi
       });
       if (!confirmed) return;
       try {
+        // Ends this device's session even offline (see AuthApi.signOut), so only a real failure lands here.
         await auth.signOut();
-      } catch (error) {
-        showInfo(isNetworkError(error) ? COPY.offline : COPY.failed);
+      } catch {
+        showInfo(COPY.failed);
         return;
       }
       store.getState().setUser(null);

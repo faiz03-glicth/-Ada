@@ -9,6 +9,8 @@ const supabaseUser = {
   user_metadata: { full_name: 'Faiz Ahmad', avatar_url: 'https://img/a.png' },
 };
 
+const unusedSession = { forget: async () => undefined };
+
 function fakeAuth(overrides: Record<string, jest.Mock>) {
   return overrides as unknown as SupabaseClient['auth'];
 }
@@ -32,7 +34,7 @@ describe('createAuthApi', () => {
       data: { user: supabaseUser, session: {} },
       error: null,
     }));
-    const api = createAuthApi(fakeAuth({ signInWithIdToken }));
+    const api = createAuthApi(fakeAuth({ signInWithIdToken }), unusedSession);
     await expect(api.signInWithIdToken('google', 'tok')).resolves.toEqual({
       id: 'user-1',
       email: 'person@example.com',
@@ -52,7 +54,7 @@ describe('createAuthApi', () => {
       data: {},
       error: new AuthRetryableFetchError('Network request failed', 0),
     }));
-    const api = createAuthApi(fakeAuth({ verifyOtp, signInWithOtp }));
+    const api = createAuthApi(fakeAuth({ verifyOtp, signInWithOtp }), unusedSession);
     await expect(api.verifyEmailOtp('a@b.co', '000000')).rejects.toMatchObject({ code: 'InvalidOtp' });
     await expect(api.requestEmailOtp('a@b.co')).rejects.toMatchObject({ code: 'Network' });
     expect(signInWithOtp).toHaveBeenCalledWith({ email: 'a@b.co', options: { shouldCreateUser: true } });
@@ -66,7 +68,7 @@ describe('createAuthApi', () => {
       return { data: { subscription: { unsubscribe: jest.fn() } } };
     });
     const callback = jest.fn();
-    createAuthApi(fakeAuth({ onAuthStateChange })).onAuthStateChange(callback);
+    createAuthApi(fakeAuth({ onAuthStateChange }), unusedSession).onAuthStateChange(callback);
 
     emit('INITIAL_SESSION', null);
     expect(callback).not.toHaveBeenCalled();
@@ -78,7 +80,28 @@ describe('createAuthApi', () => {
 
   it('signs out this device only', async () => {
     const signOut = jest.fn(async () => ({ error: null }));
-    await createAuthApi(fakeAuth({ signOut })).signOut();
+    const localSession = { forget: jest.fn(async () => undefined) };
+    await createAuthApi(fakeAuth({ signOut }), localSession).signOut();
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(localSession.forget).not.toHaveBeenCalled();
+  });
+
+  it('still signs this device out offline, by forgetting the stored session', async () => {
+    // Offline with an expired access token, Supabase can't refresh it and stops before clearing anything.
+    const signOut = jest.fn(async () => ({ error: new AuthRetryableFetchError('fetch failed', 0) }));
+    const localSession = { forget: jest.fn(async () => undefined) };
+    await expect(createAuthApi(fakeAuth({ signOut }), localSession).signOut()).resolves.toBeUndefined();
+    expect(localSession.forget).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a sign-out the server refused, and keeps the session', async () => {
+    const signOut = jest.fn(async () => ({
+      error: new AuthApiError('Server error', 500, 'unexpected_failure'),
+    }));
+    const localSession = { forget: jest.fn(async () => undefined) };
+    await expect(createAuthApi(fakeAuth({ signOut }), localSession).signOut()).rejects.toMatchObject({
+      code: 'Unknown',
+    });
+    expect(localSession.forget).not.toHaveBeenCalled();
   });
 });

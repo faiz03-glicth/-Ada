@@ -127,9 +127,10 @@ export class SupabaseAuthRepository implements AuthRepository {
       await this.deps.appMeta.remove('guest_active');
       return;
     }
-    await this.deps.google.signOut();
+    // This device's session first (it ends even offline): a sign-out that fails leaves Google signed in too.
     await this.deps.api.signOut();
     await this.deps.appMeta.remove('last_user_id');
+    await this.deps.google.signOut();
   }
 
   onAuthStateChange(callback: (user: AuthUser | null) => void): () => void {

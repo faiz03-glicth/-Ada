@@ -86,12 +86,14 @@ describe('signOut', () => {
     );
   });
 
-  it('stays signed in and explains when offline', async () => {
+  it('stays signed in and says so when logging out fails', async () => {
+    // Offline is not a failure: the repository ends this device's session anyway.
     useAuthStore.getState().setUser(testUser());
-    const { actions, auth } = setup();
-    auth.signOut.mockRejectedValueOnce(new AppError('Network', 'offline'));
+    const { actions, auth, clearCache } = setup();
+    auth.signOut.mockRejectedValueOnce(new AppError('Unknown', 'refused'));
     await actions.signOut();
     expect(useAuthStore.getState().status).toBe('signedIn');
-    expect(toast.info).toHaveBeenCalledWith("You're offline", expect.anything());
+    expect(clearCache).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith("Couldn't log out", expect.anything());
   });
 });

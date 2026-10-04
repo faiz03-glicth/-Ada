@@ -16,7 +16,7 @@ import { deviceTimeZone, nowIso } from '@/shared/lib/date/deviceTimeZone';
 import { requireEnv } from './config/env';
 import { createAppMetaDao } from './db/appMetaDao';
 import { db } from './db/client';
-import { getSupabase } from './supabase/client';
+import { forgetStoredSession, getSupabase } from './supabase/client';
 
 /**
  * Repository interfaces the app depends on. Concrete implementations are registered in
@@ -46,7 +46,7 @@ export function createRepositories(): Repositories {
   });
 
   const auth = new SupabaseAuthRepository({
-    api: createAuthApi(supabase.auth),
+    api: createAuthApi(supabase.auth, { forget: forgetStoredSession }),
     apple: expoAppleAuthService,
     google: googleSignInService,
     crypto: expoCryptoService,

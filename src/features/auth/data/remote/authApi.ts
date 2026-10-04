@@ -43,7 +43,12 @@ async function run<T>(call: () => Promise<{ error: unknown } & T>, context?: 'ot
   return result;
 }
 
-export function createAuthApi(auth: SupabaseAuth): AuthApi {
+/** This device's stored Supabase session, cleared directly when Supabase can't sign out (offline). */
+export interface LocalSession {
+  forget(): Promise<void>;
+}
+
+export function createAuthApi(auth: SupabaseAuth, localSession: LocalSession): AuthApi {
   const userFrom = (data: { user: Parameters<typeof mapAuthUser>[0] | null }): AuthUser => {
     if (!data.user) throw new AuthError('Unknown', 'Supabase returned no user');
     return mapAuthUser(data.user);
@@ -69,8 +74,16 @@ export function createAuthApi(auth: SupabaseAuth): AuthApi {
       return data.session ? mapAuthUser(data.session.user) : null;
     },
     async signOut() {
-      // 'local' ends this device's session only, not the person's other devices.
-      await run(() => auth.signOut({ scope: 'local' }));
+      try {
+        // 'local' ends this device's session only, not the person's other devices.
+        await run(() => auth.signOut({ scope: 'local' }));
+      } catch (error) {
+        // Offline, Supabase can't tell the server, and with an expired access token it stops before
+        // clearing anything. Logging out of this device must still work, so the session is forgotten here;
+        // the server's copy expires on its own.
+        if (!(error instanceof AuthError) || error.code !== 'Network') throw error;
+        await localSession.forget();
+      }
     },
     onAuthStateChange(callback) {
       const { data } = auth.onAuthStateChange((event, session) => {

@@ -242,4 +242,19 @@ describe('SupabaseAuthRepository', () => {
     expect(api.signOut).toHaveBeenCalled();
     expect(appMeta.data.has('last_user_id')).toBe(false);
   });
+
+  it('ends the Supabase session before Google, and keeps Google when that fails', async () => {
+    const { repo, api, google, appMeta } = setup();
+    await repo.signInWithGoogle();
+    api.signOut.mockRejectedValueOnce(new AuthError('Unknown'));
+
+    await expect(repo.signOut()).rejects.toMatchObject({ code: 'Unknown' });
+    expect(google.signOut).not.toHaveBeenCalled();
+    expect(appMeta.data.get('last_user_id')).toBe('user-1');
+
+    await repo.signOut();
+    expect(api.signOut.mock.invocationCallOrder[1]).toBeLessThan(
+      google.signOut.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
 });
