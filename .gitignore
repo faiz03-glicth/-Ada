@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# Google OAuth client downloads (they hold a client secret): never in the repo, whatever they are named
+client_secret*.json
+
 # typescript
 *.tsbuildinfo
 
