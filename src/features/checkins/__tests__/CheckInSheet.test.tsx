@@ -1,4 +1,4 @@
-import type { FakeableAPI } from '@jest/fake-timers';
+import type { Config } from '@jest/types';
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { toast } from 'sonner-native';
 
@@ -15,7 +15,7 @@ import { CheckInSheet } from '../ui/CheckInSheet';
 jest.mock('@/shared/actions', () => require('@test/mocks/navigationActions'));
 
 /** Everything but Date, for tests that move the clock without running timers. */
-const REAL_TIMERS: FakeableAPI[] = [
+const REAL_TIMERS: Config.FakeableAPI[] = [
   'hrtime',
   'nextTick',
   'performance',
